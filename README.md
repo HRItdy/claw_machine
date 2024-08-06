@@ -5,7 +5,7 @@
 **Features:** 
 1. The groundingdino and segment-anything are integrated to detect the object.
 2. The detection is wrapped as one service. 
-3. In this service the mask of the object is generated and published to `\mask` topic.
+3. In this service the mask of the object is generated and published to `/mask` topic.
 
 **TODO:**
 - The projection from 2D pixel coordinates to 3D pointcloud coordinates is not accurate.
