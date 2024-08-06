@@ -1,7 +1,9 @@
 # claw_machine
 
 ## This repo is a project to control the UR5 robot to grasp object. 
-**Model used:** GPT, GroundingDINO, Segment-Anything
+**Model used:** 
+GPT, GroundingDINO, Segment-Anything
+
 **Features:** 
 1. The groundingdino and segment-anything are integrated to detect the object.
 2. The detection is wrapped as one service. 
