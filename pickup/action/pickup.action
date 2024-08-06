@@ -1,0 +1,14 @@
+#goal definition
+string name
+float64 timeout
+uint32 id_marker
+float64[] xyzh
+float64[] pos
+float64[] rot
+string jpose
+---
+#result definition
+string result
+---
+#feedback
+string feedback

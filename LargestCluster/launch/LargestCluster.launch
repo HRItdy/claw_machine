@@ -1,0 +1,51 @@
+<launch>
+  <!-- Load nodelet manager -->
+  <node pkg="nodelet" type="nodelet" name="nodelet_manager" args="manager" output="screen"/>
+
+  <!-- Load driver for the depth camera (adjust according to your specific camera)
+  <include file="$(find openni2_launch)/launch/openni2.launch">
+    <arg name="depth_registration" value="true" />
+  </include> -->
+
+  <!-- Run pcl_ros VoxelGrid filter nodelet -->
+  <node pkg="nodelet" type="nodelet" name="voxel_grid" args="load pcl/VoxelGrid nodelet_manager" output="screen">
+    <remap from="~input" to="/camera/depth_registered/points" />
+    <remap from="~output" to="/camera/depth_registered/points_downsampled" />
+    <param name="leaf_size" value="0.01" />
+  </node>
+
+  <!-- Run pcl_ros EuclideanClusterExtraction nodelet to separate clusters -->
+  <node pkg="nodelet" type="nodelet" name="cluster_extraction" args="load pcl/EuclideanClusterExtraction nodelet_manager" output="screen">
+    <remap from="~input" to="/camera/depth_registered/points_downsampled" />
+    <remap from="~output" to="/point_clusters" />
+    <param name="cluster_tolerance" value="0.02" />
+    <param name="min_cluster_size" value="100" />
+    <param name="max_cluster_size" value="25000" />
+  </node>
+
+  <!-- Run a custom nodelet to select the largest cluster -->
+  <node pkg="your_package_name" type="nodelet" name="largest_cluster_extractor" args="load your_package_name/LargestClusterExtractor nodelet_manager" output="screen">
+    <remap from="~input" to="/point_clusters" />
+    <remap from="~output" to="/largest_cluster" />
+  </node>
+
+  <!-- Run pcl_ros SACSegmentation nodelet for ball detection -->
+  <node pkg="nodelet" type="nodelet" name="ball_segmentation" args="load pcl/SACSegmentation nodelet_manager" output="screen">
+    <remap from="~input" to="/largest_cluster" />
+    <remap from="~model" to="/ball_model" />
+    <param name="model_type" value="11" /> <!-- 11 corresponds to SACMODEL_SPHERE -->
+    <param name="method_type" value="0" /> <!-- 0 corresponds to SAC_RANSAC -->
+    <param name="max_iterations" value="1000" />
+    <param name="distance_threshold" value="0.03" />
+    <param name="radius_min" value="0.1" />
+    <param name="radius_max" value="0.3" />
+  </node>
+
+  <!-- Run pcl_ros ExtractIndices nodelet to extract the segmented ball -->
+  <node pkg="nodelet" type="nodelet" name="extract_ball" args="load pcl/ExtractIndices nodelet_manager" output="screen">
+    <remap from="~input" to="/largest_cluster" />
+    <remap from="~indices" to="/ball_model" />
+    <remap from="~output" to="/ball_point_cloud" />
+    <param name="negative" value="false" />
+  </node>
+</launch>
