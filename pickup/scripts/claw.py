@@ -34,6 +34,8 @@ class Claw:
         # Initialize components
         self.detector = GroundedDetection(cfg)
         self.segmenter = DetPromptedSegmentation(cfg)
+        self.color_image = None
+        self.depth_image = None
 
         # Service server
         self.service = rospy.Service('grounding_dino', GroundingDINO, self.handle_service)
@@ -43,8 +45,11 @@ class Claw:
         self.processed_point_cloud = None
 
         # Subscribers for the topics
+        # self.color_info_sub = Subscriber('/realsense_wrist/color/camera_info', CameraInfo)
+        # self.depth_info_sub = Subscriber('/realsense_wrist/depth/camera_info', CameraInfo)
+
         self.info_sub = Subscriber('/realsense_wrist/aligned_depth_to_color/camera_info', CameraInfo)
-        self.depth_sub = Subscriber('/realsense_wrist/depth/image_rect_raw', Image)
+        self.depth_sub = Subscriber('/realsense_wrist/aligned_depth_to_color/image_raw', Image)
         #self.depth_sub = Subscriber('/realsense_wrist/aligned_depth_to_color/image_raw', Image)
         self.color_sub = Subscriber('/realsense_wrist/color/image_raw', Image)
         self.mask_pub = rospy.Publisher('/mask', Int32MultiArray, queue_size=10)
@@ -59,13 +64,17 @@ class Claw:
 
     def callback(self, depth_msg, color_msg, info_msg):
 
-        # Extract the intrinsic matrix from CameraInfo
+        # self.color_info = color_info_msg
+        # self.depth_info = depth_info_msg
         self.intrinsic_matrix = np.array(info_msg.K).reshape(3, 3)
 
         # Convert ROS Image messages to OpenCV images manually
         self.depth_image = np.frombuffer(depth_msg.data, dtype=np.uint16).reshape(depth_msg.height, depth_msg.width)
         self.color_image = np.frombuffer(color_msg.data, dtype=np.uint8).reshape(color_msg.height, color_msg.width, -1)
         self.cammera_info = info_msg
+
+        # # Create a RealSense frame reference to work with the projection function
+        # self.depth_frame = rs2.frame_data(self.depth_image)
 
         #rospy.loginfo("Received depth and color images")
 
@@ -98,21 +107,52 @@ class Claw:
 
         indices = np.argwhere(mask)[2:, :].transpose(0, 1)
 
-        # points_3d = self.get_3d_points(indices, self.depth_image, self.cammera_info)
-        # self.processed_point_cloud = points_3d
-        # self.publish_point_cloud()
+        points_3d = self.get_3d_points(indices, self.cammera_info)
+        self.processed_point_cloud = points_3d
+        self.publish_point_cloud()
         
         return GroundingDINOResponse(cX=self.cX, cY=self.cY)
 
-    def get_3d_points(self, pixel_coords, depth_image, camera_info):
+    def get_3d_points(self, pixel_coords, camera_info):
         points_3d = []
         for [u, v] in pixel_coords:
-            depth = depth_image[v, u] / 1000
-            x, y, z = self.convert_depth_to_phys_coord_using_realsense(u, v, depth, camera_info)
+            # depth = depth_image[v, u] / 1000
+            x, y, z = self.convert_depth_to_phys_coord_using_realsense(u, v, camera_info)
             points_3d.append((x, y, z))
         return points_3d
 
-    def convert_depth_to_phys_coord_using_realsense(self, x, y, depth, cameraInfo):  
+    def convert_depth_to_phys_coord_using_realsense(self, x, y, cameraInfo):  
+
+        # Extract the intrinsic matrix from CameraInfo
+        # Get depth scale
+        # depth_scale = 0.001  # Assuming depth scale is 0.001 (you might need to check this value)
+
+        # # Get camera intrinsics
+        # depth_intrin = rs2.intrinsics()
+        # depth_intrin.width = self.depth_info.width
+        # depth_intrin.height = self.depth_info.height
+        # depth_intrin.ppx = self.depth_info.K[2]
+        # depth_intrin.ppy = self.depth_info.K[5]
+        # depth_intrin.fx = self.depth_info.K[0]
+        # depth_intrin.fy = self.depth_info.K[4]
+        # depth_intrin.model = rs2.distortion.brown_conrady
+        # depth_intrin.coeffs = self.depth_info.D
+
+        # color_intrin = rs2.intrinsics()
+        # color_intrin.width = self.color_info.width
+        # color_intrin.height = self.color_info.height
+        # color_intrin.ppx = self.color_info.K[2]
+        # color_intrin.ppy = self.color_info.K[5]
+        # color_intrin.fx = self.color_info.K[0]
+        # color_intrin.fy = self.color_info.K[4]
+        # color_intrin.model = rs2.distortion.brown_conrady
+        # color_intrin.coeffs = self.color_info.D
+
+        # # Get extrinsics (assuming identity matrices if not available)
+        # depth_to_color_extrin = rs2.extrinsics()
+        # color_to_depth_extrin = rs2.extrinsics()
+
+
         _intrinsics = rs2.intrinsics()
         _intrinsics.width = cameraInfo.width
         _intrinsics.height = cameraInfo.height
@@ -120,9 +160,19 @@ class Claw:
         _intrinsics.ppy = cameraInfo.K[5]
         _intrinsics.fx = cameraInfo.K[0]
         _intrinsics.fy = cameraInfo.K[4]
-        #_intrinsics.model = cameraInfo.distortion_model
-        _intrinsics.model  = rs2.distortion.none  
+        if cameraInfo.distortion_model == 'plumb_bob':
+            _intrinsics.model = rs2.distortion.brown_conrady
+        elif cameraInfo.distortion_model == 'equidistant':
+            _intrinsics.model = rs2.distortion.kannala_brandt4
         rs2.coeffs = [i for i in cameraInfo.D]  
+
+        # depth = rs2.rs2_project_color_pixel_to_depth_pixel(
+        #     self.depth_frame, depth_scale,
+        #     0.11, 2.0,  # depth_min, depth_max
+        #     depth_intrin, color_intrin, depth_to_color_extrin, color_to_depth_extrin, [x, y])
+        
+        depth = self.depth_image[x, y]
+
         result = rs2.rs2_deproject_pixel_to_point(_intrinsics, [x, y], depth)  #result[0]: right, result[1]: down, result[2]: forward
         return result[2], -result[0], -result[1]
 
