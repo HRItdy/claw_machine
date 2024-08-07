@@ -11,6 +11,10 @@ GPT, GroundingDINO, Segment-Anything
 
 **TODO:**
 - The projection from 2D pixel coordinates to 3D pointcloud coordinates is not accurate.
+    - Use visualize maker to visualize the processed pointcloud.
+    - Create a service to directly get the 3D point cloud on the remote PC.
+    - Create a service to project the 2D pixel to 3D pointcloud coordinate on the remote PC.
+    - Create a launch file on the local PC to call the service.
 - Enhance the groundingdino with GPT-4.
 - Now the detection is only executed once. If want to track the object, can use XMEM or recent SAM-v2.
 
