@@ -1,0 +1,6 @@
+bool store        # If true, store the mask; if false, retrieve the mask
+std_msgs/Int32MultiArray mask
+---
+std_msgs/Int32MultiArray stored_mask  # Returns the stored mask
+bool success                            # Indicates if the operation was successful
+

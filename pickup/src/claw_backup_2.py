@@ -37,9 +37,6 @@ class Claw:
         self.color_image = None
         self.depth_image = None
 
-        # Service server
-        self.service = rospy.Service('grounding_dino', GroundingDINO, self.handle_service)
-
         # Get the instruction input
         self.instruct = instruct
         self.processed_point_cloud = None
@@ -48,8 +45,8 @@ class Claw:
         # self.color_info_sub = Subscriber('/realsense_wrist/color/camera_info', CameraInfo)
         # self.depth_info_sub = Subscriber('/realsense_wrist/depth/camera_info', CameraInfo)
 
-        self.info_sub = Subscriber('/realsense_wrist/aligned_depth_to_color/camera_info', CameraInfo)
-        self.depth_sub = Subscriber('/realsense_wrist/aligned_depth_to_color/image_raw', Image)
+        self.info_sub = Subscriber('/realsense_wrist/depth/camera_info', CameraInfo)
+        self.depth_sub = Subscriber('/realsense_wrist/depth/image_rect_raw', Image)
         #self.depth_sub = Subscriber('/realsense_wrist/aligned_depth_to_color/image_raw', Image)
         self.color_sub = Subscriber('/realsense_wrist/color/image_raw', Image)
         self.mask_pub = rospy.Publisher('/mask', Int32MultiArray, queue_size=10)
@@ -57,6 +54,9 @@ class Claw:
         # Synchronize the topics
         self.ats = ApproximateTimeSynchronizer([self.depth_sub, self.color_sub, self.info_sub], queue_size=5, slop=0.1)
         self.ats.registerCallback(self.callback)
+
+        # Service server
+        self.service = rospy.Service('grounding_dino', GroundingDINO, self.handle_service)
 
         self.rate = rospy.Rate(10)  # 10 Hz
 
@@ -108,6 +108,7 @@ class Claw:
         indices = np.argwhere(mask)[2:, :].transpose(0, 1)
 
         points_3d = self.get_3d_points(indices, self.cammera_info)
+        points_3d = self.check_pointcloud()
         self.processed_point_cloud = points_3d
         self.publish_point_cloud()
         
@@ -115,13 +116,13 @@ class Claw:
 
     def get_3d_points(self, pixel_coords, camera_info):
         points_3d = []
-        for [u, v] in pixel_coords:
+        for [v, u] in pixel_coords:
             # depth = depth_image[v, u] / 1000
-            x, y, z = self.convert_depth_to_phys_coord_using_realsense(u, v, camera_info)
+            x, y, z = self.convert_depth_to_phys_coord_using_realsense(v, u, camera_info)
             points_3d.append((x, y, z))
         return points_3d
 
-    def convert_depth_to_phys_coord_using_realsense(self, x, y, cameraInfo):  
+    def convert_depth_to_phys_coord_using_realsense(self, u, v, cameraInfo):  
 
         # Extract the intrinsic matrix from CameraInfo
         # Get depth scale
@@ -151,19 +152,17 @@ class Claw:
         # # Get extrinsics (assuming identity matrices if not available)
         # depth_to_color_extrin = rs2.extrinsics()
         # color_to_depth_extrin = rs2.extrinsics()
-
-
-        _intrinsics = rs2.intrinsics()
-        _intrinsics.width = cameraInfo.width
-        _intrinsics.height = cameraInfo.height
-        _intrinsics.ppx = cameraInfo.K[2]
-        _intrinsics.ppy = cameraInfo.K[5]
-        _intrinsics.fx = cameraInfo.K[0]
-        _intrinsics.fy = cameraInfo.K[4]
+        self._intrinsics = rs2.intrinsics()
+        self._intrinsics.width = cameraInfo.width
+        self._intrinsics.height = cameraInfo.height
+        self._intrinsics.ppx = cameraInfo.K[2]
+        self._intrinsics.ppy = cameraInfo.K[5]
+        self._intrinsics.fx = cameraInfo.K[0]
+        self._intrinsics.fy = cameraInfo.K[4]
         if cameraInfo.distortion_model == 'plumb_bob':
-            _intrinsics.model = rs2.distortion.brown_conrady
+            self._intrinsics.model = rs2.distortion.brown_conrady
         elif cameraInfo.distortion_model == 'equidistant':
-            _intrinsics.model = rs2.distortion.kannala_brandt4
+            self._intrinsics.model = rs2.distortion.kannala_brandt4
         rs2.coeffs = [i for i in cameraInfo.D]  
 
         # depth = rs2.rs2_project_color_pixel_to_depth_pixel(
@@ -171,10 +170,20 @@ class Claw:
         #     0.11, 2.0,  # depth_min, depth_max
         #     depth_intrin, color_intrin, depth_to_color_extrin, color_to_depth_extrin, [x, y])
         
-        depth = self.depth_image[x, y]
-
-        result = rs2.rs2_deproject_pixel_to_point(_intrinsics, [x, y], depth)  #result[0]: right, result[1]: down, result[2]: forward
+        # depth = self.depth_image[v, u]
+        result = rs2.rs2_deproject_pixel_to_point(self._intrinsics, [u, v], float(self.depth_image[v, u]) * 0.001)  #result[0]: right, result[1]: down, result[2]: forward
         return result[2], -result[0], -result[1]
+    
+    def check_pointcloud(self):
+        height, width, channel = self.color_image.shape
+        point_cloud = []
+        for v in range(height):
+            for u in range(width):
+                if self.depth_image[v, u] > 0:
+                    point = rs2.rs2_deproject_pixel_to_point(self._intrinsics, [u, v], float(self.depth_image[v, u]) * 0.001)
+                    point_cloud.append([point[0], point[1], point[2]])
+        return point_cloud
+
 
     def cluster_pub(self):
         header = Header()

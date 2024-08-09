@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+    <machine name="mobile_machine" address="192.168.0.101" default="true" env-loader="/opt/ros/noetic/env_remote.sh"
+             timeout="10" user="lab_cheem"/>
+    <arg name="robot_ip" default="192.168.0.6"/>
+    <node pkg="cam_pkg" type="pixel_to_3d_service" name="project_pixel_to_3d_service" output="screen" />
+</launch>

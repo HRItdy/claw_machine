@@ -20,6 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(
   FILES
   GroundingDINO.srv
+  PixelTo3D.srv
 )
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -175,8 +176,8 @@ catkin_package(
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
    scripts/ur.py
-   scripts/claw.py
-   scripts/call_service.py
+   scripts/claw_detect.py
+   scripts/call_detect_service.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 ## Mark executables for installation

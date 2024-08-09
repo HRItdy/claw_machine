@@ -2,7 +2,7 @@
 import rospy
 from pickup.srv import GroundingDINO, GroundingDINORequest
 
-def call_service():
+def call_detect_service():
     rospy.init_node('grounding_dino_client')
     rospy.wait_for_service('grounding_dino')
     grounding_dino = rospy.ServiceProxy('grounding_dino', GroundingDINO)
@@ -12,5 +12,5 @@ def call_service():
     return response.cX, response.cY
    
 if __name__ == '__main__':
-    x, y = call_service()
+    x, y = call_detect_service()
     print('done')
