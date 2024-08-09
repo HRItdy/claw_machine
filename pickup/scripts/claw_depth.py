@@ -5,9 +5,9 @@
 
 import rospy
 import numpy as np
-from pickup.srv import GroundingDINO, GroundingDINOResponse
+from pickup.srv import Centroid, CentroidResponse
 from geometry_msgs.msg import Point32
-from std_msgs.msg import Header, Bool, Int32MultiArray, MultiArrayDimension
+from std_msgs.msg import Header, Float32MultiArray
 from sensor_msgs.msg import Image, PointCloud, CameraInfo
 import argparse
 from PIL import Image as Img, ImageOps, ImageDraw
@@ -29,11 +29,12 @@ class ClawDepth:
         self.color_sub = Subscriber('/realsense_wrist/color/image_raw', Image)
         self.depth_info_sub = Subscriber('/realsense_wrist/depth/camera_info', CameraInfo)
         self.color_info_sub = Subscriber('/realsense_wrist/color/camera_info', CameraInfo)
+        self.pc_pub = rospy.Publisher('/masked_point_cloud', PointCloud, queue_size=1)
         # Synchronize the topics
         self.ats = ApproximateTimeSynchronizer([self.depth_sub, self.color_sub, self.depth_info_sub, self.color_info_sub], queue_size=5, slop=0.1)
         self.ats.registerCallback(self.callback)
         # Service server  TODO
-        self.service = rospy.Service('get_depth', GroundingDINO, self.handle_service)
+        self.service = rospy.Service('get_depth', Centroid, self.handle_service)
         self.rate = rospy.Rate(10)  # 10 Hz
         rospy.spin()
 
@@ -52,7 +53,7 @@ class ClawDepth:
         # First get the point cloud from depth frame: target point cloud
         target_cloud = self.depth_to_point_cloud(self.depth_image, self.depth_intrinsics)
         # Then get the point cloud from color frame: source point cloud
-        source_cloud = self.color_to_point_cloud(self.color_image, self.depth_image, self.depth_intrinsics)
+        source_cloud = self.color_to_point_cloud(self.depth_image, self.depth_intrinsics, self.color_image)
         # Finally calculate the transformation matrix between this two point cloud
         self.trans_matrix = self.align_pointclouds(source_cloud, target_cloud)
     
@@ -83,41 +84,48 @@ class ClawDepth:
         mask = np.array(mask.data).reshape(rows, cols)
         
         indices = np.argwhere(mask)[2:, :].transpose(0, 1) # TODO: Check the coordinates after the transpose!
+        # Get the coordinate in the pointcloud from color frame
+        pc_color = self.color_to_point_cloud(indices, self.depth_image, self.depth_intrinsics)
+        pc_color = np.hstack([pc_color, np.ones((pc_color.shape[0], 1))])
+        # Apply the transformation matrix
+        pc_depth = (self.trans_matrix @ pc_color.T).T
+        # Convert back to 3D coordinates by removing the homogeneous component
+        pc_depth = pc_depth[:, :3]
+        self.pub_pc(pc_depth) # Will block the program. Only for result verifying here.
+        centroid = np.mean(pc_depth, axis=0).reshape(1, 3)
+        res_array = Float32MultiArray()
+        res_array.data = centroid
+        return CentroidResponse(array = res_array)
         
-        
-        return GroundingDINOResponse(cX=self.cX, cY=self.cY)
-    
-    def get_3d_points(self, pixel_coords, camera_info):
-        points_3d = []
-        for [v, u] in pixel_coords:
-            # depth = depth_image[v, u] / 1000
-            x, y, z = self.convert_depth_to_phys_coord_using_realsense(v, u, camera_info)
-            points_3d.append((x, y, z))
-        return points_3d
-    
-    def color_to_point_cloud(self, color_image, depth_image, intrinsics):
-        # Convert the whole color frame to 3D point cloud
-        height, width, _ = color_image.shape
+    def color_to_point_cloud(self, indices, depth_image, intrinsics, color_image = None):
+        if color_image is not None:
+            height, width, _ = color_image.shape
+            # Convert the whole color frame to 3D point cloud
+            u_list = [u for u in range(width)]
+            v_list = [v for v in range(height)]
+        else:
+            u_list = [u[0] for u in indices]
+            v_list = [v[0] for v in indices]
         point_cloud = []
-        for v in range(height):
-            for u in range(width):
+        for v in v_list:
+            for u in u_list:
                 if depth_image[v, u] > 0:
                     point = rs2.rs2_deproject_pixel_to_point(intrinsics, [u, v], float(depth_image[v, u]) * 0.001)
                     point_cloud.append([point[0], point[1], point[2]])
         return np.array(point_cloud)
 
-    def cluster_pub(self):
+    def cluster_pub(self, pc):
         header = Header()
         header.stamp = rospy.Time.now()
         header.frame_id = 'realsense_wrist_link'
         pc_msg = PointCloud()
         pc_msg.header = header
-        pc_msg.points = [Point32(x=float(p[0]), y=float(p[1]), z=float(p[2])) for p in self.processed_point_cloud]
+        pc_msg.points = [Point32(x=float(p[0]), y=float(p[1]), z=float(p[2])) for p in pc]
         self.pc_pub.publish(pc_msg)
 
-    def publish_point_cloud(self):
+    def pub_pc(self, pc):
         while not rospy.is_shutdown():
-            self.cluster_pub()
+            self.cluster_pub(pc)
             self.rate.sleep()
 
     def depth_to_point_cloud(self, depth_image, intrinsics):
@@ -163,13 +171,10 @@ class ClawDepth:
         _intrinsics.coeffs = [i for i in cameraInfo.D]  
         return _intrinsics
 
-
-
-
     # def convert_to_numpy(self, cloud_msg):
     #     # Convert PointCloud to numpy array
     #     points = np.array([[p.x, p.y, p.z] for p in cloud_msg.points])
     #     return points
 
 if __name__ == '__main__':
-    point_cloud_publisher = Claw('pick up the left red ball')
+    ClawDepth()

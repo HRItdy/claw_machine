@@ -21,6 +21,8 @@ add_service_files(
   FILES
   GroundingDINO.srv
   PixelTo3D.srv
+  StoreMask.srv
+  Centroid.srv
 )
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
