@@ -10,6 +10,7 @@ project(pickup)
 find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
+  sensor_msgs
   actionlib_msgs
   message_generation
 )
@@ -23,6 +24,7 @@ add_service_files(
   PixelTo3D.srv
   StoreMask.srv
   Centroid.srv
+  GetPointCloud.srv
 )
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -167,11 +169,13 @@ add_action_files(
 generate_messages(
   DEPENDENCIES
   actionlib_msgs
+  sensor_msgs
+  std_msgs
 )
 
 
 catkin_package(
-  CATKIN_DEPENDS actionlib_msgs message_runtime
+  CATKIN_DEPENDS actionlib_msgs message_runtime sensor_msgs
 )
 
 ## Mark executable scripts (Python etc.) for installation
