@@ -26,3 +26,13 @@ GPT, GroundingDINO, Segment-Anything
 **PickUp:** The main function. Now contains the detection and grasping. Overlay is to be done.
 
 **call_service_global.py:** The client to call the detection service. Can be placed in any other ROS package or projects. But remember to place the `srv` file into the project.
+
+## How to use:
+### Run sys_lux.launch
+### Run pc_transform.py
+
+### Run pc_calibration.py
+
+### Run claw_detection.py and call_detect_service.py
+
+### Run pc_segment.py
