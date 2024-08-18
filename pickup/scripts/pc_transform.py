@@ -32,13 +32,20 @@ def transform_cloud(cloud_msg):
     normal = np.array(plane_model[:3])
     rotation_matrix = compute_rotation_matrix(normal)
 
+    rospy.set_param('/pc_transform/normal', normal.tolist())
+    rospy.set_param('/pc_transform/rotation_matrix', rotation_matrix.tolist())
+    rospy.loginfo("Normal of the biggest plane has been stored to /pc_transform/normal.")
+    rospy.loginfo("Rotation of the plane has been stored to /pc_transform/rotation_matrix.")
+
     # Apply the rotation to the entire point cloud
     rotated_points = points.dot(rotation_matrix.T)
 
     # Translate the points so that the plane lies on z=0
     plane_z_values = rotated_points[inliers][:, 2]
     translation_z = -np.mean(plane_z_values)
-    rotated_points[:, 2] += translation_z
+    rospy.set_param('/pc_transform/z_bias', translation_z.item())
+    rospy.loginfo("Translate along z-axis has been stored to /pc_transform/z_bias")
+    rotated_points[:, 2] += translation_z  # add translation_z here, so when transform back, remember to first substract.
 
     # Publish the transformed cloud
     transformed_cloud_msg = create_pointcloud2_msg(rotated_points, cloud_msg.header)
@@ -63,6 +70,19 @@ def compute_rotation_matrix(normal):
     rotation_matrix = np.eye(3) + k + k.dot(k) * ((1 - c) / (s ** 2))
 
     return rotation_matrix
+
+def inverse_cloud(points):
+    rotation_matrix = np.array(rospy.get_param('/pc_transform/rotation_matrix'))
+    translation_z = rospy.get_param('/pc_transform/z_bias')
+    # Reverse the translation along the z-axis
+    points[:, 2] -= translation_z
+    # Compute the inverse rotation matrix
+    inverse_rotation_matrix = np.linalg.inv(rotation_matrix)
+    # Apply the inverse rotation to the points
+    original_points = points.dot(inverse_rotation_matrix.T)
+    return original_points
+    
+
 
 def create_pointcloud2_msg(points, header):
     fields = [

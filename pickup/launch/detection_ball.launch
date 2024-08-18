@@ -1,0 +1,74 @@
+<launch>
+    <node pkg="nodelet" type="nodelet" name="pcl_manager" args="manager" output="screen"/>
+
+    <!-- Run a VoxelGrid filter to clean NaNs and downsample the data -->
+    <node pkg="nodelet" type="nodelet" name="voxel_grid" args="load pcl/VoxelGrid pcl_manager" output="screen">
+        <remap from="~input" to="/your_filtered_pointcloud_topic"/>
+        <rosparam>
+            leaf_size: 0.01
+        </rosparam>
+    </node>
+
+    <!-- Segment spherical objects -->
+    <node pkg="nodelet" type="nodelet" name="ball_segmentation" args="load pcl/SACSegmentation pcl_manager"
+          output="screen">
+        <remap from="~input" to="/voxel_grid/output"/>
+        <rosparam>
+            model_type: 3  <!-- 3 corresponds to sphere segmentation -->
+            method_type: 0  <!-- RANSAC method -->
+            distance_threshold: 0.01
+            max_iterations: 1000
+            radius_min: 0.03
+            radius_max: 0.1
+            optimize_coefficients: true
+        </rosparam>
+    </node>
+
+    <!-- Extract the spherical indices -->
+    <node pkg="nodelet" type="nodelet" name="extract_sphere_indices" args="load pcl/ExtractIndices pcl_manager"
+          output="screen">
+        <remap from="~input" to="/voxel_grid/output"/>
+        <remap from="~indices" to="/ball_segmentation/inliers"/>
+        <rosparam>
+            negative: false
+            use_indices: true
+        </rosparam>
+    </node>
+
+    <!-- Cluster extraction for the segmented ball -->
+    <node pkg="nodelet" type="nodelet" name="euclidean_cluster" args="load pcl/EuclideanClusterExtraction pcl_manager"
+          output="screen">
+        <remap from="~input" to="/extract_sphere_indices/output"/>
+        <rosparam>
+            cluster_tolerance: 0.02
+            min_cluster_size: 50
+            max_cluster_size: 1000
+            max_clusters: 10
+        </rosparam>
+    </node>
+
+    <!-- Extract the largest cluster (ball) -->
+    <node pkg="nodelet" type="nodelet" name="extract_largest_cluster" args="load pcl/ExtractIndices pcl_manager"
+          output="screen">
+        <remap from="~input" to="/euclidean_cluster/output"/>
+        <rosparam>
+            negative: false
+            use_indices: true
+        </rosparam>
+    </node>
+
+    <!-- Compute the centroid of the largest cluster -->
+    <node pkg="nodelet" type="nodelet" name="centroid_computation" args="load pcl/Compute3DCentroid pcl_manager"
+          output="screen">
+        <remap from="~input" to="/extract_largest_cluster/output"/>
+    </node>
+
+    <!-- Relay the centroid information -->
+    <node pkg="topic_tools" type="relay" name="relay_centroid" output="screen">
+        <remap from="input" to="/centroid_computation/output"/>
+        <remap from="output" to="/centroid_topic"/>
+    </node>
+
+    <!-- Custom node to store the centroid in ROS parameter server -->
+    <node pkg="your_package_name" type="store_centroid.py" name="store_centroid" output="screen"/>
+</launch>

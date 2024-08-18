@@ -48,8 +48,8 @@ class Calibrator:
             # example_pts_2d = np.array([185,287]) #left down ball
             projected_pts_3d = pts_3d[:, 1:]
             H = self.compute_homography(self.pts_2d, projected_pts_3d)
-            point = self.apply_homography(H, example_pts_2d)
-
+            point = Calibrator.apply_homography(H, example_pts_2d)
+            rospy.set_param('/pc_transform/homography', H.tolist())
             # find the x through Ax+By+Cz+D=0?
             # or just project back to get the 3D bounding box and do the ball detection
             print('done')
@@ -67,8 +67,9 @@ class Calibrator:
         H = Vh[-1].reshape((3, 3))
         
         return H / H[-1, -1]  # Normalize the matrix
-
-    def apply_homography(self, H, points_2d):
+    
+    @staticmethod
+    def apply_homography(H, points_2d):
         homogeneous_point = np.array([points_2d[0], points_2d[1], 1.0])
         transformed_point = np.dot(H, homogeneous_point)
         return transformed_point[:2] / transformed_point[2]

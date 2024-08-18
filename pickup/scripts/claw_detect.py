@@ -14,6 +14,7 @@ from PIL import Image as Img, ImageOps, ImageDraw
 from store_mask_service import store_mask_client
 import os
 import copy
+import cv2
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
@@ -80,6 +81,10 @@ class ClawDetect:
         # Convert mask to numpy array if not already
         mask = np.array(mask)
         mask = np.squeeze(mask)
+        bottom = self.find_bottom_point(mask)
+        rospy.set_param('/pc_transform/image_mask', mask.tolist())
+        rospy.set_param('/pc_transform/bottom', bottom.tolist())
+        rospy.loginfo('Store bottom point to /pc_transform/bottom')
         indices = np.argwhere(mask == 1)
         centroid = indices.mean(axis=0)
         self.cY, self.cX = centroid.astype(int)
@@ -112,6 +117,41 @@ class ClawDetect:
         overlay_image_path = os.path.join(output_dir, "overlay_image.png")
         draw_image.save(overlay_image_path)
         return mask
+    
+    def find_bottom_point(self, mask):
+        # Find the indices where the mask is True
+        y_indices, x_indices = np.where(mask)
+        if len(y_indices) == 0:
+            return None  # No points found in the mask
+        # Find the maximum y-index, which corresponds to the bottom point
+        max_y_index = np.argmax(y_indices)
+        # Return the (x, y) coordinate of the bottom point
+        bottom_point = (x_indices[max_y_index], y_indices[max_y_index])
+        return np.array(bottom_point)
+    
+    # def find_bottom_point(self, mask):
+    #     # Find contours
+    #     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    #     if len(contours) == 0:
+    #         return None
+    #     # Get the largest contour (assuming the circle is the largest object in the mask)
+    #     contour = max(contours, key=cv2.contourArea)
+    #     # Find the bottommost point
+    #     bottom_point = np.array(contour[contour[:, :, 1].argmax()][0])
+    #     return bottom_point
+    
+    def find_bottom_point_of_fitted_circle(mask):  # can be used if the circle is blocked by other circles
+        # Find contours
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if len(contours) == 0:
+            return None
+        # Get the largest contour (assuming the circle is the largest object in the mask)
+        contour = max(contours, key=cv2.contourArea)
+        # Fit a circle to the contour points
+        (x, y), radius = cv2.minEnclosingCircle(contour)
+        # Calculate the bottommost point of the fitted circle
+        bottom_point = (int(x), int(y + radius))
+        return bottom_point, (int(x), int(y)), int(radius)
 
 if __name__ == '__main__':
     point_cloud_publisher = ClawDetect('pick up the left red ball')
