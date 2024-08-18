@@ -10,11 +10,8 @@ GPT, GroundingDINO, Segment-Anything
 3. In this service the mask of the object is generated and published to `/mask` topic.
 
 **TODO:**
-- The projection from 2D pixel coordinates to 3D pointcloud coordinates is not accurate.
-    - Use visualize maker to visualize the processed pointcloud.
-    - Create a service to directly get the 3D point cloud on the remote PC.
-    - Create a service to project the 2D pixel to 3D pointcloud coordinate on the remote PC.
-    - Create a launch file on the local PC to call the service.
+- The transformation from original pointcloud to a planar pointcloud is good, but the inverse transformation is not accurate.
+- The claw_detection is stuck after adding find_bottom function. The easiest way to solve this is putting the find_bottom in pc_segment.py
 - Enhance the groundingdino with GPT-4.
 - Now the detection is only executed once. If want to track the object, can use XMEM or recent SAM-v2.
 
