@@ -30,6 +30,7 @@ GPT, GroundingDINO, Segment-Anything
 
 ### Run pc_calibration.py
 
+ - For point cloud points input, run `rostopic echo /clicked_point`, select `Publish point` in rviz, click the bottom of each ball, the coordinates will be published into `/clicked_point` topic. Paste them into the terminal.
 ### Run claw_detection.py and call_detect_service.py
 
 ### Run pc_segment.py
