@@ -29,7 +29,7 @@ GPT, GroundingDINO, Segment-Anything
 ### Run pc_transform.py
 
 ### Run pc_calibration.py
-
+ - For image point input, run `python pc_calibration.py`, select four points in counterclockwise order. The order of the points is indicated by number. Remember to input the pointcloud coordinates accordingly.
  - For point cloud points input, run `rostopic echo /clicked_point`, select `Publish point` in rviz, click the bottom of each ball, the coordinates will be published into `/clicked_point` topic. Input them into the terminal.
 ### Run claw_detection.py and call_detect_service.py
 
