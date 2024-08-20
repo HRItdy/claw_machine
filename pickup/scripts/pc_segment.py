@@ -6,7 +6,12 @@ import sensor_msgs.point_cloud2 as pc2
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point
 from pc_calibration import Calibrator
-from pc_transform import inverse_cloud
+from geometry_msgs.msg import PointStamped
+from scipy.optimize import leastsq
+
+# TODO:
+# Now only filter the distance with the porjected point, need to calculate z-axis coordinate and filter it using a ball
+# Transform the pointcloud, and re-try whether rs2 can work
 
 def eliminate_planes(pointcloud, num_planes=2):
     for _ in range(num_planes):
@@ -22,114 +27,193 @@ def eliminate_planes(pointcloud, num_planes=2):
     
     return pointcloud
 
-def generate_bounding_box(point3D, normal_vector, box_size):
-    # Same function as before to generate corners of the bounding box
-    normal_vector = normal_vector / np.linalg.norm(normal_vector)
-    
-    if normal_vector[0] != 0 or normal_vector[1] != 0:
-        ortho_vector1 = np.array([-normal_vector[1], normal_vector[0], 0])
-    else:
-        ortho_vector1 = np.array([1, 0, 0])
-    ortho_vector1 = ortho_vector1 / np.linalg.norm(ortho_vector1)
-    ortho_vector2 = np.cross(normal_vector, ortho_vector1)
-    
-    half_size = box_size / 2.0
-    corners = [
-        point3D + half_size * (ortho_vector1 + ortho_vector2 + normal_vector),
-        point3D + half_size * (ortho_vector1 - ortho_vector2 + normal_vector),
-        point3D + half_size * (-ortho_vector1 + ortho_vector2 + normal_vector),
-        point3D + half_size * (-ortho_vector1 - ortho_vector2 + normal_vector),
-        point3D + half_size * (ortho_vector1 + ortho_vector2 - normal_vector),
-        point3D + half_size * (ortho_vector1 - ortho_vector2 - normal_vector),
-        point3D + half_size * (-ortho_vector1 + ortho_vector2 - normal_vector),
-        point3D + half_size * (-ortho_vector1 - ortho_vector2 - normal_vector)
-    ]
-    
-    return np.array(corners)
-
-def filter_points_in_bounding_box(pointcloud, bbox_corners):
-    bbox = o3d.geometry.AxisAlignedBoundingBox.create_from_points(o3d.utility.Vector3dVector(bbox_corners))
-    cropped_pc = pointcloud.crop(bbox)
-    return cropped_pc
-
-def create_bounding_box_marker(bbox_corners, frame_id="map"):
+def create_line_marker(point3D, frame_id):
     marker = Marker()
     marker.header.frame_id = frame_id
     marker.header.stamp = rospy.Time.now()
-    marker.ns = "bounding_box"
+    marker.ns = "line_marker"
     marker.id = 0
-    marker.type = Marker.LINE_LIST
+    marker.type = Marker.LINE_STRIP
     marker.action = Marker.ADD
-    marker.pose.orientation.w = 1.0
-    
+
+    # Set the scale of the marker - line width
     marker.scale.x = 0.01  # Line width
+
+    # Set the color - Red
     marker.color.r = 1.0
     marker.color.g = 0.0
     marker.color.b = 0.0
-    marker.color.a = 1.0  # Transparency
+    marker.color.a = 1.0
 
-    # Define the 12 edges of the bounding box
-    edges = [
-        (0, 1), (1, 3), (3, 2), (2, 0),  # Bottom square
-        (4, 5), (5, 7), (7, 6), (6, 4),  # Top square
-        (0, 4), (1, 5), (2, 6), (3, 7)   # Vertical lines
-    ]
-    
-    for edge in edges:
-        p1 = Point(x=bbox_corners[edge[0]][0], y=bbox_corners[edge[0]][1], z=bbox_corners[edge[0]][2])
-        p2 = Point(x=bbox_corners[edge[1]][0], y=bbox_corners[edge[1]][1], z=bbox_corners[edge[1]][2])
-        marker.points.append(p1)
-        marker.points.append(p2)
+    # Set the marker points
+    for z in np.linspace(0, 2, num=10):  # Generate points from z=0 to z=2
+        point = (0.4, 0.1, z)
+        p = Point()
+        p.x = point[0]
+        p.y = point[1]
+        p.z = point[2]
+        marker.points.append(p)
 
     return marker
 
-def pointcloud_callback(data, pc_pub, marker_pub):
-    points = np.array(list(pc2.read_points(data, field_names=("x", "y", "z"), skip_nans=True))) # eliminate color in pointcloud2
+def create_point_marker(point3D, frame_id, color):
+    marker = Marker()
+    marker.header.frame_id = frame_id
+    marker.header.stamp = rospy.Time.now()
+    marker.ns = "point_marker"
+    marker.id = 0
+    marker.type = Marker.POINTS
+    marker.action = Marker.ADD
+
+    # Set the scale of the marker - point size
+    marker.scale.x = 0.02  # Point width
+    marker.scale.y = 0.02  # Point height
+
+    # Set the color based on user input
+    marker.color.r = color[0]
+    marker.color.g = color[1]
+    marker.color.b = color[2]
+    marker.color.a = color[3]
+
+    # Add the input 3D point
+    p = Point()
+    p.x = point3D[0]
+    p.y = point3D[1]
+    p.z = point3D[2]
+    marker.points.append(p)
+
+    k = Point()
+    k.x = 0
+    k.y = 0
+    k.z = 0
+    marker.points.append(k)
+
+    # For the pointcloud frame, if u want to map a point onto the pointcloud
+    # pointcloud.x = -point.y
+    # pointcloud.y = -point.z
+    # pointcloud.z = point.x
+
+    # If want to map the pointcloud to point frame
+    # point.x = pointcloud.z
+    # point.y = -pointcloud.x
+    # point.z = -pointcloud.y
+    aim = Point()   #(0.39, 0.096, -0.02)
+    aim.x = -0.096
+    aim.y = 0.02
+    aim.z = 0.39
+    marker.points.append(aim)
+
+    return marker
+
+def transform(points_A):
+    # Define the transformation matrix
+    T = np.array([
+        [0, 0, 1, 0],
+        [-1, 0, 0, 0],
+        [0, -1, 0, 0],
+        [0, 0, 0, 1]
+    ])
+    # Convert pointcloud_A to homogeneous coordinates (N x 4)
+    ones = np.ones((points_A.shape[0], 1))
+    points_A_hom = np.hstack((points_A, ones))
+    # Apply the transformation matrix
+    points_B_hom = T @ points_A_hom.T
+    # Convert back to 3D coordinates
+    points_B = points_B_hom[:3, :].T
+    return points_B
+
+def pointcloud_callback(data, pc_pub, marker_pub, centroid_pub):
+    points_ = np.array(list(pc2.read_points(data, field_names=("x", "y", "z"), skip_nans=True))) # eliminate color in pointcloud2
+    # Transform the pointcloud (there is a dismatch between the frame of realsense depth camera and realsense_wrist_link.)
+    # Transform from realsense depth -> realsense_wrist_link
+    points = transform(points_)
     pc = o3d.geometry.PointCloud()
     pc.points = o3d.utility.Vector3dVector(points)
     
     # Eliminate the largest and second largest planes
     filtered_pc = eliminate_planes(pc)
-    pc_publish(data.header, filtered_pc, pc_pub)
     
     # Convert the 2D point to 3D using the homography
-    bottom = rospy.get_param('/pc_transform/bottom')
-    point2D = np.array([bottom[0], bottom[1], 1]) 
-    homography_matrix = np.array(rospy.get_param('/pc_transform/homography'))
-    point3D = Calibrator.apply_homography(homography_matrix, point2D)
-    point3D = np.array([[0.001, point3D[0], point3D[1]]]) # Here the x-axis is almost 0
+    H = np.array(rospy.get_param('/calibration/H'))
+    point2D = np.array(rospy.get_param('/pc_transform/bottom')) 
+    point3D = Calibrator.transform_2d_to_3d(point2D, H)
+
+    # Extract the pointcloud
+    min_z = -0.3 # bound of z-axis
+    max_z = 0.3
+
+    # Convert filtered_pc.points to a numpy array
+    filtered_points = np.asarray(filtered_pc.points)
+
+    cropped_pc = extract_cylinder_points(filtered_points, point3D[0], point3D[1], 0.06, min_z, max_z)
     
-    # Convert the 3D point to the original point cloud position
-    point3D = inverse_cloud(point3D)
-    # Get the normal vector from the ROS parameter server
-    normal_vector = np.array(rospy.get_param('/pc_transform/normal'))
-    
-    # Generate the bounding box
-    box_size = 0.2  # Replace with the desired box size
-    bounding_box_corners = generate_bounding_box(point3D, normal_vector, box_size)
-    
-    # Filter points within the bounding box
-    cropped_pc = filter_points_in_bounding_box(filtered_pc, bounding_box_corners)
+    # Convert numpy array back to Open3D PointCloud
+    cropped_o3d_pc = o3d.geometry.PointCloud()
+    cropped_o3d_pc.points = o3d.utility.Vector3dVector(cropped_pc)
     
     # Convert Open3D PointCloud to ROS PointCloud2
-    ros_pc2 = pc2.create_cloud_xyz32(data.header, np.asarray(cropped_pc.points))
+    # ros_pc2 = pc2.create_cloud_xyz32(data.header, np.asarray(cropped_o3d_pc.points))
+    ros_pc2 = pc2.create_cloud_xyz32(data.header, np.asarray(points))
     
     # Publish the cropped point cloud
     pc_pub.publish(ros_pc2)
-    
-    # Create and publish the bounding box marker
-    marker = create_bounding_box_marker(bounding_box_corners, frame_id=data.header.frame_id)
+
+    # Create and publish the line marker
+    marker = create_point_marker([0.4, 0.1, 0], data.header.frame_id, [1, 0, 0, 1])
     marker_pub.publish(marker)
 
-def pc_publish(header, pc, pc_pub):
-    ros_pc2 = pc2.create_cloud_xyz32(header, np.asarray(pc.points))
-    pc_pub.publish(ros_pc2)
+    # Get the centroid
+    cluster(cropped_pc, data.header, centroid_pub)
+
+def extract_cylinder_points(pointcloud, center_x, center_y, radius, min_z=-1, max_z=1):
+    points = []
+    for point in pointcloud:
+        distances_sq = (point[0] - center_x) ** 2 + (point[1] - center_y) ** 2
+        if distances_sq <= radius ** 2 and min_z <= point[2] <= max_z:
+            points.append(point)
+    cylinder_points = np.array(points)
+    return cylinder_points
+
+def cluster(points, header, centroid_pub):
+    if points.shape[0] > 3:  # Need at least 4 points to fit a sphere
+        center, radius = fit_sphere(points)
+
+        if center is not None:
+            # Create a PointStamped message for the centroid
+            centroid_msg = PointStamped()
+            centroid_msg.header = header
+            centroid_msg.point.x = center[0]
+            centroid_msg.point.y = center[1]
+            centroid_msg.point.z = center[2]
+
+            # Publish the centroid
+            centroid_pub.publish(centroid_msg)
+
+def fit_sphere(points):
+    # Initial guess for the center and radius
+    x_m = np.mean(points[:, 0])
+    y_m = np.mean(points[:, 1])
+    z_m = np.mean(points[:, 2])
+    r_guess = np.mean(np.linalg.norm(points - np.array([x_m, y_m, z_m]), axis=1))
+
+    def residuals(p):
+        center, radius = p[:3], p[3]
+        return np.linalg.norm(points - center, axis=1) - radius
+
+    # Initial guess: [center_x, center_y, center_z, radius]
+    p0 = [x_m, y_m, z_m, r_guess]
+    result = leastsq(residuals, p0)
+
+    center = result[0][:3]
+    radius = result[0][3]
+    return center, radius
 
 def main():
     rospy.init_node('bounding_box_node')
     pc_pub = rospy.Publisher('/cropped_pointcloud', PointCloud2, queue_size=1)
     marker_pub = rospy.Publisher('/bounding_box_marker', Marker, queue_size=1)
-    rospy.Subscriber('/realsense_wrist/depth_registered/points', PointCloud2, lambda data: pointcloud_callback(data, pc_pub, marker_pub))
+    centroid_pub = rospy.Publisher("/ball_centroid", PointStamped, queue_size=10)
+    rospy.Subscriber('/realsense_wrist/depth_registered/points', PointCloud2, lambda data: pointcloud_callback(data, pc_pub, marker_pub, centroid_pub))
     rospy.spin()
 
 if __name__ == "__main__":
