@@ -34,3 +34,4 @@ GPT, GroundingDINO, Segment-Anything
 ### Run claw_detection.py and call_detect_service.py
 
 ### Run pc_segment.py
+The center point is published to `..... ` TODO: Add the pipeline diagram and the architecture of the topics in readme.
