@@ -129,7 +129,7 @@ def pointcloud_callback(data, pc_pub, marker_pub, centroid_pub):
     points = transform(points_)
     pc = o3d.geometry.PointCloud()
     pc.points = o3d.utility.Vector3dVector(points)
-    
+
     # Eliminate the largest and second largest planes
     filtered_pc = eliminate_planes(pc)
     
@@ -144,7 +144,6 @@ def pointcloud_callback(data, pc_pub, marker_pub, centroid_pub):
 
     # Convert filtered_pc.points to a numpy array
     filtered_points = np.asarray(filtered_pc.points)
-
     cropped_pc = extract_cylinder_points(filtered_points, point3D[0], point3D[1], 0.06, min_z, max_z)
     
     # Convert numpy array back to Open3D PointCloud
@@ -153,17 +152,62 @@ def pointcloud_callback(data, pc_pub, marker_pub, centroid_pub):
     
     # Convert Open3D PointCloud to ROS PointCloud2
     # ros_pc2 = pc2.create_cloud_xyz32(data.header, np.asarray(cropped_o3d_pc.points))
-    ros_pc2 = pc2.create_cloud_xyz32(data.header, np.asarray(points))
-    
-    # Publish the cropped point cloud
-    pc_pub.publish(ros_pc2)
+    # ros_pc2 = pc2.create_cloud_xyz32(data.header, cropped_pc)
+    # # Publish the cropped point cloud
+    # pc_pub.publish(ros_pc2)
 
     # Create and publish the line marker
     marker = create_point_marker([0.4, 0.1, 0], data.header.frame_id, [1, 0, 0, 1])
     marker_pub.publish(marker)
 
+    # The target regional pointcloud has been segmented out. Filter out the noise points
+    fc_ = filter(cropped_o3d_pc)
+    # Convert Open3D PointCloud to ROS PointCloud2
+    # ros_pc2 = pc2.create_cloud_xyz32(data.header, np.asarray(cropped_o3d_pc.points))
+    ros_pc2 = pc2.create_cloud_xyz32(data.header, fc_.points)
+    # Publish the cropped point cloud
+    pc_pub.publish(ros_pc2)
+
+    fc = np.asarray(fc_.points)
     # Get the centroid
-    cluster(cropped_pc, data.header, centroid_pub)
+    cluster(fc, point3D, data.header, centroid_pub)
+
+def filter(pcd):
+    # pcd = pcd.voxel_down_sample(voxel_size=0.05)
+    # # Step 1: Apply Statistical Outlier Removal
+    # pcd, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=1.0)
+    # filtered_pcd = pcd.select_by_index(ind)
+
+    # # # Step 2: Apply Radius Outlier Removal
+    # filtered_pcd, ind = filtered_pcd.remove_radius_outlier(nb_points=16, radius=0.05)
+    # filtered_pcd = filtered_pcd.select_by_index(ind)
+
+    # # Visualize the point cloud after noise removal
+    # print("Point cloud after noise removal:")
+    # o3d.visualization.draw_geometries([filtered_pcd])
+
+    # Step 3: Apply DBSCAN clustering to keep the largest cluster
+    # with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
+    #     labels = np.array(filtered_pcd.cluster_dbscan(eps=0.05, min_points=10, print_progress=True))
+
+    # max_label = labels.max()
+    # print(f"point cloud has {max_label + 1} clusters")
+
+    # # Retain only the largest cluster
+    # largest_cluster_idx = np.where(labels == np.bincount(labels[labels >= 0]).argmax())[0]
+    # filtered_pcd = filtered_pcd.select_by_index(largest_cluster_idx)
+    # Downsample the point cloud (optional)
+    pcd = pcd.voxel_down_sample(voxel_size=0.01)
+    # Estimate normals (optional)
+    pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.05, max_nn=30))
+    # Perform DBSCAN clustering
+    labels = np.array(pcd.cluster_dbscan(eps=0.02, min_points=10, print_progress=True))  # `eps`` is the distance that defines the neighborhood of a point, 
+                                                                                         # and `min_points`` is the minimum number of points required to form a cluster
+    # Find the largest cluster
+    max_label = labels.max()
+    largest_cluster = pcd.select_by_index(np.where(labels == max_label)[0])
+    return largest_cluster
+
 
 def extract_cylinder_points(pointcloud, center_x, center_y, radius, min_z=-1, max_z=1):
     points = []
@@ -174,18 +218,21 @@ def extract_cylinder_points(pointcloud, center_x, center_y, radius, min_z=-1, ma
     cylinder_points = np.array(points)
     return cylinder_points
 
-def cluster(points, header, centroid_pub):
+def cluster(points, estimate, header, centroid_pub):
     if points.shape[0] > 3:  # Need at least 4 points to fit a sphere
         center, radius = fit_sphere(points)
+        # Exam whether this center is far away from the estimated center
+        center = None if (center[0] - estimate[0]) ** 2 + (center[1] - estimate[1]) ** 2 > 0.06 ** 2 else center
 
         if center is not None:
+            rospy.loginfo(f'Estimate Successfully: {center}')
+            rospy.set_param('/pc_transform/center', center.tolist())
             # Create a PointStamped message for the centroid
             centroid_msg = PointStamped()
             centroid_msg.header = header
             centroid_msg.point.x = center[0]
             centroid_msg.point.y = center[1]
             centroid_msg.point.z = center[2]
-
             # Publish the centroid
             centroid_pub.publish(centroid_msg)
 

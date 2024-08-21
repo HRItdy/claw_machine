@@ -38,7 +38,7 @@ class ClawDepth:
         self.depth_image = np.frombuffer(depth_image.data, dtype=np.uint16).reshape(depth_image.height, depth_image.width)
         self.intrinsics = self.camera_register(camera_info)
         # get the mask
-        mask, success = store_mask_client(store=False)
+        mask = np.array(rospy.get_param('/pc_transform/image_mask'))
         indices = np.argwhere(mask)[2:, :].transpose(0, 1) # TODO: Check the coordinates after the transpose!
         self.seg_pc = self.points_to_point_cloud(indices, self.depth_image, self.intrinsics)
         self.pub_pc(self.seg_pc, self.seg_pub)
@@ -46,8 +46,8 @@ class ClawDepth:
 
     # The service to get the depth
     def handle_service(self, req):
-        # get the mask from the service
-        mask, success = store_mask_client(store=False)
+        # get the mask
+        mask = np.array(rospy.get_param('/pc_transform/image_mask'))
         indices = np.argwhere(mask)[2:, :].transpose(0, 1) # TODO: Check the coordinates after the transpose!
         
         # Convert depth image message to numpy array

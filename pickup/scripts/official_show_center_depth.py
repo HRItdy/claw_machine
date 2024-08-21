@@ -1,13 +1,14 @@
 import rospy
 from sensor_msgs.msg import Image as msg_Image
 from sensor_msgs.msg import CameraInfo, PointCloud2
+import sensor_msgs.point_cloud2 as pc2
+import open3d as o3d
 from std_msgs.msg import Header
 from cv_bridge import CvBridge, CvBridgeError
 import sys
 import os
 import numpy as np
 import pyrealsense2 as rs2
-from store_mask_service import store_mask_client
 from sensor_msgs import point_cloud2
 
 if (not hasattr(rs2, 'intrinsics')):
@@ -18,20 +19,49 @@ class ImageListener:
         self.bridge = CvBridge()
         self.sub = rospy.Subscriber(depth_image_topic, msg_Image, self.imageDepthCallback)
         self.sub_info = rospy.Subscriber(depth_info_topic, CameraInfo, self.imageDepthInfoCallback)
+        self.sub_pc = rospy.Subscriber('/realsense_wrist/depth_registered/points', PointCloud2, self.pointCloudInfoCallback)
         confidence_topic = depth_image_topic.replace('depth', 'confidence')
         self.sub_conf = rospy.Subscriber(confidence_topic, msg_Image, self.confidenceCallback)
         self.pub = rospy.Publisher('output_pointcloud', PointCloud2, queue_size=10)
+        self.pc_pub = rospy.Publisher('/transformed_pointcloud', PointCloud2, queue_size=1)
         self.intrinsics = None
         self.pix = None
         self.pix_grade = None
         self.rate = rospy.Rate(10)  # 10 Hz
+
+    def transform(self, points_A):
+        # Define the transformation matrix
+        T = np.array([
+            [0, 0, 1, 0],
+            [-1, 0, 0, 0],
+            [0, -1, 0, 0],
+            [0, 0, 0, 1]
+        ])
+        # Convert pointcloud_A to homogeneous coordinates (N x 4)
+        ones = np.ones((points_A.shape[0], 1))
+        points_A_hom = np.hstack((points_A, ones))
+        # Apply the transformation matrix
+        points_B_hom = T @ points_A_hom.T
+        # Convert back to 3D coordinates
+        points_B = points_B_hom[:3, :].T
+        return points_B
+    
+    def pointCloudInfoCallback(self, data):
+        points_ = np.array(list(pc2.read_points(data, field_names=("x", "y", "z"), skip_nans=True))) # eliminate color in pointcloud2
+        # Transform the pointcloud (there is a dismatch between the frame of realsense depth camera and realsense_wrist_link.)
+        # Transform from realsense depth -> realsense_wrist_link
+        points = self.transform(points_)
+        pc = o3d.geometry.PointCloud()
+        pc.points = o3d.utility.Vector3dVector(points)
+        ros_pc2 = pc2.create_cloud_xyz32(data.header, np.asarray(points))
+        self.pc_pub.publish(ros_pc2)
 
     def imageDepthCallback(self, data):
         depth_image = np.frombuffer(data.data, dtype=np.uint16).reshape(data.height, data.width)
         # cv_image = self.bridge.imgmsg_to_cv2(data, str(data.encoding))
         # pick one pixel among all the pixels with the closest range:
         # indices = np.array(np.where(cv_image == cv_image[cv_image > 0].min()))[:,0]
-        mask, success = store_mask_client(store=False)
+        mask = np.array(rospy.get_param('/pc_transform/image_mask'))
         indices = np.argwhere(mask)[2:, :].transpose(0, 1) 
         points = []
         for indice in indices:
@@ -40,7 +70,16 @@ class ImageListener:
             if self.intrinsics:
                 depth = depth_image[pix[1], pix[0]] * 0.001
                 result = rs2.rs2_deproject_pixel_to_point(self.intrinsics, [pix[0], pix[1]], depth)
-                points.append(result)
+                # For the pointcloud frame, if u want to map a point onto the pointcloud
+                # pointcloud.x = -point.y
+                # pointcloud.y = -point.z
+                # pointcloud.z = point.x
+
+                # If want to map the pointcloud to point frame
+                # point.x = pointcloud.z
+                # point.y = -pointcloud.x
+                # point.z = -pointcloud.y
+                points.append([result[2], -result[0], -result[1]])
         pc = np.array(points)
         self.pub_pc(pc, self.pub)
         

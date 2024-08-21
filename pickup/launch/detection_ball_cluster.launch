@@ -1,23 +1,11 @@
 <launch>
+    <!-- Load the PCL nodelet manager -->
+    <node pkg="nodelet" type="nodelet" name="nodelet_manager" args="manager" />
 
-    <!-- Nodelet manager -->
-    <node pkg="nodelet" type="nodelet" name="nodelet_manager" args="manager" output="screen">
+    <!-- Voxel Grid Filter Nodelet -->
+    <node pkg="nodelet" type="nodelet" name="voxel_filter" args="load pcl/VoxelGrid nodelet_manager">
+        <param name="input" value="/cropped_pointcloud" />
+        <param name="output" value="/filtered_point_cloud" />
+        <param name="leaf_size" value="0.1" />
     </node>
-
-    <!-- Euclidean Cluster Extraction Nodelet -->
-    <node pkg="nodelet" type="nodelet" name="cluster_extraction" args="load pcl/EuclideanClusterExtraction nodelet_manager">
-        <remap from="input" to="/cropped_pointcloud"/> <!-- Replace with your actual point cloud topic -->
-        <remap from="output" to="/segmented_clusters"/>
-        <!-- Load the parameters for the Euclidean Cluster Extraction -->
-        <param name="cluster_tolerance" value="0.05"/> <!-- Adjust tolerance based on your point cloud resolution -->
-        <param name="min_cluster_size" value="10"/> <!-- Minimum points in a cluster -->
-        <param name="max_cluster_size" value="25000"/> <!-- Maximum points in a cluster -->
-        <param name="spatial_locator" value="0"/>
-    </node>
-
-    <!-- Centroid extraction node
-    <node pkg="your_package_name" type="centroid_extraction_node" name="centroid_extraction_node" output="screen">
-        <remap from="input_clusters" to="/segmented_clusters"/>
-        <remap from="centroid" to="/ball_centroid"/>
-    </node> -->
 </launch>
