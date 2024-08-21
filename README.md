@@ -15,6 +15,10 @@ GPT, GroundingDINO, Segment-Anything
 - Enhance the groundingdino with GPT-4.
 - Now the detection is only executed once. If want to track the object, can use XMEM or recent SAM-v2.
 
+- Store the calibration parameter into local file. Consider the load logic to get the local file, or redo the calibration.
+- Solve the deadlock in claw_detect.py.
+- Write the launch to run the nodes simultaneously.
+
 
 ## Sturcture:
 
