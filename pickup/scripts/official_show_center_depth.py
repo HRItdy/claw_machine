@@ -65,7 +65,7 @@ class ImageListener:
         indices = np.argwhere(mask)[2:, :].transpose(0, 1) 
         points = []
         for indice in indices:
-            pix = (indice[1], indice[0])
+            pix = (indice[0], indice[1])
             self.pix = pix
             if self.intrinsics:
                 depth = depth_image[pix[1], pix[0]] * 0.001
@@ -80,6 +80,8 @@ class ImageListener:
                 # point.y = -pointcloud.x
                 # point.z = -pointcloud.y
                 points.append([result[2], -result[0], -result[1]])
+                #points.append([-result[1], -result[2], result[0]])
+                # points.append([result[0], -result[1], -result[2]])
         pc = np.array(points)
         self.pub_pc(pc, self.pub)
         
@@ -128,7 +130,7 @@ class ImageListener:
 
 def main():
     depth_image_topic = '/realsense_wrist/aligned_depth_to_color/image_raw'
-    depth_info_topic = '/realsense_wrist/depth/camera_info'
+    depth_info_topic = '/realsense_wrist/aligned_depth_to_color/camera_info'
 
     print ('')
     print ('show_center_depth.py')

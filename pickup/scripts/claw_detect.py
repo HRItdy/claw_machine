@@ -11,7 +11,6 @@ from std_msgs.msg import Header, Bool, Int32MultiArray, MultiArrayDimension
 from sensor_msgs.msg import Image, PointCloud, CameraInfo
 import argparse
 from PIL import Image as Img, ImageOps, ImageDraw
-from store_mask_service import store_mask_client
 import os
 import copy
 import cv2
@@ -56,8 +55,6 @@ class ClawDetect:
             return GroundingDINOResponse(cX=-1, cY=-1)
         image_pil = Img.fromarray(self.color_image)
         mask = self.process_image(image_pil, req.instruction)
-        # Call the store_mask_service to store the mask
-        stored_mask, success = store_mask_client(mask, store=True)
         print('Image has been processed.')
         return GroundingDINOResponse(cX=self.cX, cY=self.cY)
 

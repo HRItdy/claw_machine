@@ -25,6 +25,8 @@ add_service_files(
   StoreMask.srv
   Centroid.srv
   GetPointCloud.srv
+  Get3DPosition.srv
+  GraspService.srv
 )
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -181,9 +183,9 @@ catkin_package(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
-   scripts/ur.py
    scripts/claw_detect.py
    scripts/call_detect_service.py
+   scripts/call_depth_service.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 ## Mark executables for installation

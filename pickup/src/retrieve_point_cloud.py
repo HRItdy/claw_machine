@@ -3,7 +3,7 @@ from sensor_msgs.msg import PointCloud2, PointField
 from std_msgs.msg import Header
 import sensor_msgs.point_cloud2 as pc2
 import numpy as np
-from store_mask_service import store_mask_client
+from pickup.src.store_mask_service import store_mask_client
 
 def get_index(u, v, width):
     return v * width + u

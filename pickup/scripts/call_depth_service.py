@@ -1,38 +1,25 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
+
 import rospy
-from std_msgs.msg import Float32MultiArray
-from pickup.srv import Centroid, CentroidRequest
+from pickup.srv import Get3DPosition, Get3DPositionRequest, Get3DPositionResponse  # Replace 'your_package' with your actual package name
+from geometry_msgs.msg import Point
 
 def call_depth_service():
-    # Initialize the ROS node
-    rospy.init_node('depth_client')
-    
-    # Wait for the service to be available
-    rospy.wait_for_service('get_depth')
-    
+    if not rospy.has_param('/calibration/H'):
+        rospy.ERROR('Calibration is required!')
+    rospy.init_node('get_3d_position_client')
+    rospy.wait_for_service('get_3d_position')
     try:
-        # Create a service proxy to call the service
-        get_depth = rospy.ServiceProxy('get_depth', Centroid)
-        
-        # Prepare the service request (if needed, here it's an empty request)
-        request = CentroidRequest()
-        
-        # Call the service and get the response
-        response = get_depth(request)
-        
-        # Extract the array from the response
-        point_array = response.array.data
-        
-        # Print the received coordinates
-        print(f"Received coordinates: {point_array}")
-        
-        return point_array
-
+        get_3d_position = rospy.ServiceProxy('get_3d_position', Get3DPosition)
+        response = get_3d_position() 
+        position = [response.position.x, response.position.y, response.position.z]
+        rospy.loginfo(f'Get the estimated centroid location: {position}')
+        rospy.set_param('/3d_position', position)
+        return position
     except rospy.ServiceException as e:
         rospy.logerr(f"Service call failed: {e}")
         return None
 
-if __name__ == '__main__':
-    # Call the depth service and print the results
-    points = call_depth_service()
-    print('done')
+if __name__ == "__main__":
+    position = call_depth_service()
+    print('centroid position found')

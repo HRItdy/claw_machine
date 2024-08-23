@@ -13,4 +13,4 @@ def call_detect_service():
    
 if __name__ == '__main__':
     x, y = call_detect_service()
-    print('done')
+    print('detection done')

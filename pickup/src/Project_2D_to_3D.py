@@ -7,7 +7,7 @@ from sensor_msgs.msg import Image, CameraInfo, PointCloud2, PointField
 from cv_bridge import CvBridge, CvBridgeError
 import sensor_msgs.point_cloud2 as pc2
 import message_filters
-from store_mask_service import store_mask_client
+from pickup.src.store_mask_service import store_mask_client
 
 class DepthToColorRegistration:
     def __init__(self):
