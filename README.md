@@ -19,6 +19,10 @@ GPT, GroundingDINO, Segment-Anything
 - Solve the deadlock in claw_detect.py.
 - Write the launch to run the nodes simultaneously.
 
+- Set a fixed home position.
+- The robot arm will be blocked. Any other way to do the movement? (Like not using movel but movep)
+- Form a document.
+
 
 ## Sturcture:
 
