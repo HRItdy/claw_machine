@@ -44,7 +44,7 @@ class GraspExecutor:
         # finish the confirmation
         # rospy.init_node('position_publisher', anonymous=True)
         pub = rospy.Publisher('/robot_base_position', PointStamped, queue_size=10)
-        self.pub_point(pub)
+        # self.pub_point(pub)
         # Create action server
         self.action_server = actionlib.SimpleActionServer('grasp_action', pickupAction, self.execute_grasp_action, auto_start=False)
         self.action_server.start()
@@ -52,7 +52,7 @@ class GraspExecutor:
     def pub_point(self, pub):
         position = rospy.get_param('/3d_position')
         # map back to the pointcloud
-        position = inverse_transform_for_point(position)
+        # position = inverse_transform_for_point(position)
         original_frame = 'realsense_wrist_link'
 
         # Set up the TF2 listener
@@ -68,6 +68,7 @@ class GraspExecutor:
             pos = self.transform_point(position, transform_matrix)  
             # pos = np.dot(self.R_z, pos)
             # Create the PointStamped message
+            rospy.loginfo(f"The grasping position is: {pos}")
             point_stamped = PointStamped()
             point_stamped.header.stamp = rospy.Time.now()
             point_stamped.header.frame_id = original_frame
@@ -83,19 +84,20 @@ class GraspExecutor:
         feedback = pickupFeedback()
         result = pickupResult()
 
-        rospy.loginfo("Executing grasp with name: {} at position: {}".format(goal.name, grasp_pos))
+        rospy.loginfo("Executing grasp with name: {} at position under frame realsense_wrist_link: {}".format(goal.name, grasp_pos))
 
         try:
             # Transform the grasp position from `realsense_wrist_link` to `arm_base_link`
-            tf = self.tf_buffer.lookup_transform('arm_base_link', 'realsense_wrist_link', rospy.Time(0), rospy.Duration(0.1))
+            tf = self.tf_buffer.lookup_transform('arm_base_link', 'realsense_wrist_link', rospy.Time(0), rospy.Duration(1.0))
             transform_matrix = self.get_transform_matrix(tf)
             pos = self.transform_point(grasp_pos, transform_matrix)
+            rospy.loginfo(f"Grasping position under arm_base_link: {pos}")
 
             feedback.feedback = "Moving to pre-grasp position"
             self.action_server.publish_feedback(feedback)
 
             # Move to pre-grasp position
-            pre_grasp_depth = 0.1
+            pre_grasp_depth = 0.2
             pre_grasp_pos = [pos[0], pos[1], pos[2] + pre_grasp_depth]
             if not self.move_linear(pre_grasp_pos, frame_id='arm_base_link'):
                 result.result = "Failed to move to pre-grasp position"
