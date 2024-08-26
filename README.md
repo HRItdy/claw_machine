@@ -9,17 +9,9 @@ GPT, GroundingDINO, Segment-Anything
 2. The functions are wrapped as individual services. 
 
 **TODO:**
-- The transformation from original pointcloud to a planar pointcloud is good, but the inverse transformation is not accurate.
-- The claw_detection is stuck after adding find_bottom function. The easiest way to solve this is putting the find_bottom in pc_segment.py
 - Enhance the groundingdino with GPT-4.
 - Now the detection is only executed once. If want to track the object, can use XMEM or recent SAM-v2.
-
-- Store the calibration parameter into local file. Consider the load logic to get the local file, or redo the calibration.
-- Solve the deadlock in claw_detect.py.
 - Write the launch to run the nodes simultaneously.
-
-- Set a fixed home position.
-- The robot arm will be blocked. Any other way to do the movement? (Like not using movel but movep)
 - Form a document.
 
 
