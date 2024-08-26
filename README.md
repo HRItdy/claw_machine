@@ -26,7 +26,7 @@ GPT, GroundingDINO, Segment-Anything
 - claw_depth.py
 - ur_executor.py
 - claw_pickup.py
-- external_
+- **external**: folder containing the call_service script can be called in other workpackages (called in PromptChat project).
 
 
 ## How to use:
