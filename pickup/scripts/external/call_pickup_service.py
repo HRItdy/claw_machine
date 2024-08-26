@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import rospy
+import roslib
+roslib.load_manifest('pickup')
 from pickup.srv import GraspService, GraspServiceRequest
 
 def call_pickup_service():

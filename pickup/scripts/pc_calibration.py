@@ -2,15 +2,24 @@ import rospy
 from sensor_msgs.msg import Image
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+import json
 
 class Calibrator:
     def __init__(self):
         self.image = None
         self.pts_2d = []
         self.pts_3d = []
+        self.calibration_file = "calibration_data.json"
 
         rospy.init_node('calibration', anonymous=True)
         rospy.Subscriber('/realsense_wrist/color/image_raw', Image, self.image_callback)
+
+        # Check if calibration data exists
+        if os.path.exists(self.calibration_file):
+            self.load_calibration()
+        else:
+            rospy.loginfo("No existing calibration data found. Starting new calibration.")
 
     def image_callback(self, msg):
         height = msg.height
@@ -44,13 +53,6 @@ class Calibrator:
         self.calculate_transformation_matrix()
 
     def calculate_transformation_matrix(self):
-        """
-        Calculate the transformation matrix from 2D to 3D using corresponding points.
-        
-        :param points_2d: List of 2D points [(x1, y1), (x2, y2), ...]
-        :param points_3d: List of corresponding 3D points [(X1, Y1, Z1), (X2, Y2, Z2), ...]
-        :return: 3x3 transformation matrix
-        """
         assert len(self.pts_2d) == len(self.pts_3d), "Number of 2D and 3D points must be the same"
         assert len(self.pts_2d) >= 4, "At least 4 point correspondences are required"
 
@@ -65,10 +67,8 @@ class Calibrator:
         A = np.array(A)
         b = np.array(b)
 
-        # Solve the system of linear equations
         h = np.linalg.lstsq(A, b, rcond=None)[0]
-        
-        # Reshape the solution into a 3x3 matrix
+
         H = np.array([
             [h[0], h[1], h[2]],
             [h[3], h[4], h[5]],
@@ -78,30 +78,47 @@ class Calibrator:
         rospy.set_param('/calibration/H', H.tolist())
         rospy.loginfo("Stored H successfully!")
 
-        #example
-        example_pts_2d = np.array([355, 214])  # Example point to transform
+        # Save calibration data to local file
+        self.save_calibration(H)
+
+        example_pts_2d = np.array([355, 214])
         point = self.transform_2d_to_3d(example_pts_2d, H)
         print("Example 2D point:", example_pts_2d)
         print("Computed 3D point based on the example 2D point:", point)
 
+    def save_calibration(self, H):
+        data = {
+            "points_2d": self.pts_2d,
+            "points_3d": self.pts_3d.tolist(),
+            "H": H.tolist()
+        }
+        with open(self.calibration_file, 'w') as f:
+            json.dump(data, f)
+        rospy.loginfo(f"Calibration data saved to {self.calibration_file}")
+
+    def load_calibration(self):
+        with open(self.calibration_file, 'r') as f:
+            data = json.load(f)
+        self.pts_2d = data['points_2d']
+        self.pts_3d = np.array(data['points_3d'])
+        H = np.array(data['H'])
+
+        rospy.set_param('/calibration/points_2d', self.pts_2d)
+        rospy.set_param('/calibration/points_3d', self.pts_3d.tolist())
+        rospy.set_param('/calibration/H', H.tolist())
+        rospy.loginfo("Calibration data loaded from file and stored in ROS parameter server.")
+
     @staticmethod
     def transform_2d_to_3d(point_2d, H):
-        """
-        Transform a 2D point to 3D using the transformation matrix.
-        
-        :param point_2d: 2D point (x, y)
-        :param H: 3x3 transformation matrix
-        :return: 3D point (X, Y, Z)
-        """
         x, y = point_2d
         p_2d = np.array([x, y, 1])
         p_3d = np.dot(H, p_2d)
-        X, Y, Z = p_3d / p_3d[2]  # Normalize by Z
+        X, Y, Z = p_3d / p_3d[2]
         return X, Y, Z
 
     def run(self):
-        rospy.sleep(2)  # Wait a bit to ensure we have the image data
-        if self.image is not None:
+        rospy.sleep(2)
+        if self.image is not None and not os.path.exists(self.calibration_file):
             plt.imshow(self.image)
             plt.gcf().canvas.mpl_connect('button_press_event', self.on_click)
             plt.show()

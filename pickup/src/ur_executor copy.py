@@ -12,8 +12,6 @@ from claw_depth import inverse_transform_for_point
 
 ACCE = 0.1
 VELO = 0.2
-LIFTUP = 0.01
-RQY = (0, 1.57, 0)  # Change to your own grasping orientation
 
 class GraspExecutor:
     def __init__(self):
@@ -25,11 +23,26 @@ class GraspExecutor:
         self.tf_listener = TransformListener(self.tf_buffer)
 
         TRANS_TCP = (0, 0, 0.19, 1.2092, -1.2092, 1.2092)
+        # TRANS_BASE = [0, 0, 0, -0.61394313, 1.48218982, 0.61394313]
         # Align the robot with the standard axis
         TRANS_BASE = [0, 0, 0, 0, 0, 3.1415926]
+        self.R_z = np.array([             # Transform matrix corresponding to TRANS_TCP
+                        [-1, 0, 0],
+                        [0, -1, 0],
+                        [0, 0, 1]
+                    ])
         self.rob.set_tcp(TRANS_TCP)  # Replace with TCP
         self.rob.set_payload(0.5, (0, 0, 0.1))  # Replace with payload
         self.rob.set_csys(m3d.Transform(TRANS_BASE))
+        #self.move_tcp_perpendicular()
+        
+        # confirm the coordinates
+        # current_pose = self.rob.get_pose()
+        # new_pose = current_pose.copy()
+        # new_pose.pos.z += 0.05
+        # self.rob.set_pose(new_pose, wait=True)
+        # # finish the confirmation
+        # rospy.init_node('position_publisher', anonymous=True)
         pub = rospy.Publisher('/robot_base_position', PointStamped, queue_size=10)
         # self.pub_point(pub)
         # Create action server
@@ -38,6 +51,8 @@ class GraspExecutor:
 
     def pub_point(self, pub):
         position = rospy.get_param('/3d_position')
+        # map back to the pointcloud
+        # position = inverse_transform_for_point(position)
         original_frame = 'realsense_wrist_link'
 
         # Set up the TF2 listener
@@ -81,15 +96,47 @@ class GraspExecutor:
             feedback.feedback = "Moving to grasp position"
             self.action_server.publish_feedback(feedback)
 
-            # Move to grasp position
-            self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP, *RQY), acc=0.1, vel=0.2)
+            # Move to pre-grasp position
+            liftup = 0.01
+            rqy = (0, 1.57, 0)
+            #pre_grasp_pos = [pos[0], pos[1], pos[2] + pre_grasp_depth]
+            self.rob.movel((pos[0], pos[1], pos[2] + liftup, *rqy), acc=0.1, vel=0.2)
+            rospy.loginfo('In position')
+
+            # # Finished!
+            # if not self.move_linear(pre_grasp_pos, frame_id='arm_base_link'):
+            #     result.result = "Failed to move to pre-grasp position"
+            #     self.action_server.set_aborted(result, result.result)
+            #     return
+
+            # # Open gripper
+            # self.move_gripper(1, attach=False)
+
+            # feedback.feedback = "Moving to grasp position"
+            # self.action_server.publish_feedback(feedback)
+
+            # # Move to grasp position
+            # self.rob.movel((position.x, position.y, position.z, *rpy), acc=0.1, vel=0.2)
+            # if not self.move_linear(pos, frame_id='arm_base_link'):
+            #     result.result = "Failed to move to grasp position"
+            #     self.action_server.set_aborted(result, result.result)
+            #     return
+
             # Close gripper
             self.move_gripper(0.1)
 
             feedback.feedback = "Lifting object"
             self.action_server.publish_feedback(feedback)
 
-            self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP + 0.1, *RQY), acc=0.1, vel=0.2)
+            # Lift gripper
+            #lift_up = 0.05
+            # lift_pos = [pos[0], pos[1], pos[2] + lift_up]
+            self.rob.movel((pos[0], pos[1], pos[2] + liftup + 0.05, *rqy), acc=0.1, vel=0.2)
+            # if not self.move_linear(lift_pos, frame_id='arm_base_link'):
+            #     result.result = "Failed to lift gripper"
+            #     self.action_server.set_aborted(result, result.result)
+            #     return
+
             rospy.loginfo("Grasp executed successfully")
             result.result = "Grasp executed successfully"
             self.action_server.set_succeeded(result)
@@ -116,6 +163,7 @@ class GraspExecutor:
         :param world: boolean True for world frame, else tcp frame
         :param wait: blocking wait
         :return: None
+        
         """
         ACCE = 0.1
         VELO = 0.2
@@ -151,6 +199,15 @@ class GraspExecutor:
         self.rob.movel((position.x, position.y, position.z, *rpy), acc=0.1, vel=0.2)
         return True
     
+    # def move_tcp_absolute(self, pose, wait=True):
+    #     """
+    #     move eff to absolute pose in robot base frame with position control
+    #     :param pose: list [x y z R P Y] (meter, radian)
+    #     :param wait: blocking wait
+    #     :return: None
+    #     """
+    #     self.rob.set_pose(m3d.Transform(pose), ACCE, VELO, wait)
+
     def move_tcp_relative(self, pose, wait=True):
         """
         move eff to relative pose in tool frame with position control
