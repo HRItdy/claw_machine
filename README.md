@@ -35,7 +35,7 @@ GPT, GroundingDINO, Segment-Anything
 Run the remote ROS node and publish multiple data to topics.
 ### Run pc_calibration.py
 
-When there is no `calibration_` file, it will trigger the new calibration progress. But if there is one such file, the program will load it by default. Please delete the file if you want to re-calibrate the homography transform matrix.
+When there is no `calibration_data.json` file, it will trigger the new calibration progress. But if there is one such file, the program will load it by default. Please delete the file if you want to re-calibrate the homography transform matrix.
 
  - For image point input, run `python pc_calibration.py`, select four points in counterclockwise order. The order of the points is indicated by number. Remember to input the pointcloud coordinates accordingly.
  - For point cloud points input, run `rostopic echo /clicked_point`, select `Publish point` in rviz, click the bottom of each ball, the coordinates will be published into `/clicked_point` topic. Input them into the terminal. Make sure the fixed frame of rviz is 'realsense_wrist_link'.
