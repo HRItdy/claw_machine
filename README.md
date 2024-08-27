@@ -25,9 +25,9 @@ GPT, GroundingDINO, Segment-Anything
 - models.py: Logic to load GroundingDINO and Segment-Anything. **TODO:** change the path to relative path.
 - claw_detect.py: Receive the instruction, detect the target and feedback the mask.
 - claw_depth.py: Receive the bottom point of the mask, project it to the tabletop coordinate, 
-- ur_executor.py
-- claw_pickup.py
-- **external**: folder containing the call_service script can be called in other workpackages (called in PromptChat project).
+- ur_executor.py: Connect to the robot and initialize the actionlib.
+- claw_pickup.py: Initialize the pickup service.
+- **external**: Folder containing the call_service script can be called in other workpackages (called in PromptChat project).
 
 
 ## How to use:
