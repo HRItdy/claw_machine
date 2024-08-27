@@ -32,8 +32,7 @@ GPT, GroundingDINO, Segment-Anything
 
 ## How to use:
 ### Run sys_lux.launch
-### Run pc_transform.py
-
+Run the remote ROS node and publish multiple data to topics.
 ### Run pc_calibration.py
  - For image point input, run `python pc_calibration.py`, select four points in counterclockwise order. The order of the points is indicated by number. Remember to input the pointcloud coordinates accordingly.
  - For point cloud points input, run `rostopic echo /clicked_point`, select `Publish point` in rviz, click the bottom of each ball, the coordinates will be published into `/clicked_point` topic. Input them into the terminal.
