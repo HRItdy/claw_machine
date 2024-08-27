@@ -35,7 +35,8 @@ GPT, GroundingDINO, Segment-Anything
 Run the remote ROS node and publish multiple data to topics.
 ### Run pc_calibration.py
  - For image point input, run `python pc_calibration.py`, select four points in counterclockwise order. The order of the points is indicated by number. Remember to input the pointcloud coordinates accordingly.
- - For point cloud points input, run `rostopic echo /clicked_point`, select `Publish point` in rviz, click the bottom of each ball, the coordinates will be published into `/clicked_point` topic. Input them into the terminal.
+ - For point cloud points input, run `rostopic echo /clicked_point`, select `Publish point` in rviz, click the bottom of each ball, the coordinates will be published into `/clicked_point` topic. Input them into the terminal. Make sure the fixed frame of rviz is 'realsense_wrist_link'.
+ - The selected 2D pixel coordinates will be stored in parameter `/calibration/points_2d`, the corresponindg 3D pointcloud coordinates will be stored in parameter `/calibration/points_3d`, and the calculated homography matrix is stored in `/calibration/H`.
 ### Run claw_detection.py and call_detect_service.py
 
 ### Run pc_segment.py
