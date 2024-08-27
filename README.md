@@ -40,5 +40,8 @@ Run the remote ROS node and publish multiple data to topics.
 ### Run claw_detection.py (ready for being called by call_detect_service.py)
 Load the pretrained checkpoint of GroundingDINO and Segment-Anything.
 
-### Run pc_segment.py
+### Run claw_depth.py (ready for being called by call_depth_service.py)
 The center point is published to `..... ` TODO: Add the pipeline diagram and the architecture of the topics in readme.
+
+### Run ur_executor.py and claw_pickup.py (ready for being called by call_pickup_service.py)
+
