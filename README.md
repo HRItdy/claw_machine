@@ -39,7 +39,7 @@ source setup.bash
 roslaunch lab_launch sys_lux.launch
 ```
 
-**RUN ALL SCRIPTS WITH ONE COMMAND**
+**RUN ALL SCRIPTS WITH ONE COMMAND**、
 Terminal 2:
 ```python
 cd ~/claw_machine/src/pickup/launch/    
