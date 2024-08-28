@@ -31,6 +31,16 @@ GPT, GroundingDINO, Segment-Anything
 
 
 ## How to use:
+**LAUNCH CONNECTION WITH ROBOT AND ROSCORE**
+Terminal 1:    
+`cd ~/Sources/png_ws/`
+`source setup.bash`
+`roslaunch lab_launch sys_lux.launch`
+
+RUN ALL SCRIPTS WITH ONE COMMAND
+Terminal 2:
+cd ~/claw_machine/src/pickup/launch/    
+./claw_machine.sh
 ### Run sys_lux.launch
 Run the remote ROS node and publish multiple data to topics.
 ### Run pc_calibration.py
