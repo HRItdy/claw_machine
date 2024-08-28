@@ -50,12 +50,12 @@ This shell will:
 source ~/claw_machine/devel/setup.bash
 mamba activate claw_machine
 ```
-Run:
-**pc_calibration.py**: The script to map 2D image coordinates to 3D position on tabletop (essentially a plane-to-plane homography projection, detailed usecase please refer to calibration session). 
-**claw_detect.py**: Receive the instruction, load the pretrained model as specified in models.py, detect the target and feedback the mask. 
-**claw_depth.py**: Receive the bottom point of the mask, project it to the tabletop, estimate the centroid location of the target. 
-**ur_executor.py**: Connect to the robot and initialize the actionlib. 
-**claw_pickup.py**: Start the manipulation service.
+Then run:\
+**pc_calibration.py**: The script to map 2D image coordinates to 3D position on tabletop (essentially a plane-to-plane homography projection, detailed usecase please refer to calibration session). \
+**claw_detect.py**: Receive the instruction, load the pretrained model as specified in models.py, detect the target and feedback the mask. \
+**claw_depth.py**: Receive the bottom point of the mask, project it to the tabletop, estimate the centroid location of the target. \
+**ur_executor.py**: Connect to the robot and initialize the actionlib. \
+**claw_pickup.py**: Start the manipulation service.\
 
 RUN EACH SCRIPT IN INDIVIDUAL TERMINAL
 Terminal 2A: Calibration  
