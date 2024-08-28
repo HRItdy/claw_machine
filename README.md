@@ -48,3 +48,70 @@ The center point is published to `..... ` TODO: Add the pipeline diagram and the
 
 ### Run ur_executor.py and claw_pickup.py (ready for being called by call_pickup_service.py)
 
+
+LAUNCH CONNECTION WITH ROBOT AND ROSCORE
+Terminal 1:    
+cd ~/Sources/png_ws/
+source setup.bash
+roslaunch lab_launch sys_lux.launch
+
+RUN ALL SCRIPTS WITH ONE COMMAND
+Terminal 2:
+cd ~/claw_machine/src/pickup/launch/    
+./claw_machine.sh
+
+This shell will:
+source ~/claw_machine/devel/setup.bash
+mamba activate claw_machine
+
+Run:
+pc_calibration.py: The script to map 2D image coordinates to 3D position on tabletop (essentially a plane-to-plane homography projection, detailed usecase please refer to calibration session). 
+claw_detect.py: Receive the instruction, load the pretrained model as specified in models.py, detect the target and feedback the mask. 
+claw_depth.py: Receive the bottom point of the mask, project it to the tabletop, estimate the centroid location of the target. 
+ur_executor.py: Connect to the robot and initialize the actionlib. 
+claw_pickup.py: Start the manipulation service.
+
+RUN EACH SCRIPT IN INDIVIDUAL TERMINAL
+Terminal 2A: Calibration  
+source ~/claw_machine/devel/setup.bash
+mamba activate claw_machine
+python pc_calibration.py
+
+The calibration result will be stored in calibration_data.json file. If there is already a file, the program will load the parameters in default. If the home position is moved, please trigger a new calibration procedure by deleting the calibration json file.
+
+Usecase:
+After running pc_calibration.py, when the color image is received, there will be a window. In this window select four points in counterclockwise order. The order of the selected points is indicated by number. 
+
+Run rostopic echo /clicked_point, select Publish point function in rviz, click the bottom of each ball, the coordinates will be published into /clicked_point topic. Input them into the terminal. Make sure the fixed frame of rviz is 'realsense_wrist_link'. And the order of inputs should match the order of 2D image points.
+
+After calibration, the selected 2D pixel coordinates will be stored in parameter /calibration/points_2d, the corresponindg 3D pointcloud coordinates will be stored in parameter /calibration/points_3d, and the calculated homography matrix is stored in /calibration/H. All these info will be stored in calibration_data.json file.
+
+Terminal 2B:  Detection
+source ~/claw_machine/devel/setup.bash
+mamba activate claw_machine
+python claw_detect.py
+
+#NOTE: Change the model path in models.py if the host machine is changed. In future will change this path to relative path.
+This script starts the detection service, which can be called by call_detect_service.py.
+
+Terminal 2C: 3D Position Estimate
+source ~/claw_machine/devel/setup.bash
+mamba activate claw_machine
+python claw_depth.py
+
+This script starts the depth service, which can be called by call_depth_service.py.
+
+Terminal 2D: Initialize Robot     
+source ~/claw_machine/devel/setup.bash
+mamba activate claw_machine
+python ur_executor.py
+
+This script will initialize the robot and the actionlib.
+
+Terminal 2E: Manipulation     
+source ~/claw_machine/devel/setup.bash
+mamba activate claw_machine
+python claw_pickup.py
+
+This script starts the manipulation service, which can be called by call_pickup_service.py.
+
