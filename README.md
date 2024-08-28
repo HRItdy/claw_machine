@@ -32,7 +32,7 @@ GPT, GroundingDINO, Segment-Anything
 
 ## How to use:
 **LAUNCH CONNECTION WITH ROBOT AND ROSCORE**\
-Terminal 1:    \
+Terminal 1:
 ```python
 cd ~/Sources/png_ws/
 source setup.bash
@@ -41,47 +41,21 @@ roslaunch lab_launch sys_lux.launch
 
 **RUN ALL SCRIPTS WITH ONE COMMAND**
 Terminal 2:
+```python
 cd ~/claw_machine/src/pickup/launch/    
 ./claw_machine.sh
-### Run sys_lux.launch
-Run the remote ROS node and publish multiple data to topics.
-### Run pc_calibration.py
-
-When there is no `calibration_data.json` file, it will trigger the new calibration progress. But if there is one such file, the program will load it by default. Please delete the file if you want to re-calibrate the homography transform matrix.
-
- - For image point input, run `python pc_calibration.py`, select four points in counterclockwise order. The order of the points is indicated by number. Remember to input the pointcloud coordinates accordingly.
- - For point cloud points input, run `rostopic echo /clicked_point`, select `Publish point` in rviz, click the bottom of each ball, the coordinates will be published into `/clicked_point` topic. Input them into the terminal. Make sure the fixed frame of rviz is 'realsense_wrist_link'.
- - The selected 2D pixel coordinates will be stored in parameter `/calibration/points_2d`, the corresponindg 3D pointcloud coordinates will be stored in parameter `/calibration/points_3d`, and the calculated homography matrix is stored in `/calibration/H`.
-### Run claw_detection.py (ready for being called by call_detect_service.py)
-Load the pretrained checkpoint of GroundingDINO and Segment-Anything.
-
-### Run claw_depth.py (ready for being called by call_depth_service.py)
-The center point is published to `..... ` TODO: Add the pipeline diagram and the architecture of the topics in readme.
-
-### Run ur_executor.py and claw_pickup.py (ready for being called by call_pickup_service.py)
-
-
-LAUNCH CONNECTION WITH ROBOT AND ROSCORE
-Terminal 1:    
-cd ~/Sources/png_ws/
-source setup.bash
-roslaunch lab_launch sys_lux.launch
-
-RUN ALL SCRIPTS WITH ONE COMMAND
-Terminal 2:
-cd ~/claw_machine/src/pickup/launch/    
-./claw_machine.sh
-
+```
 This shell will:
+```python
 source ~/claw_machine/devel/setup.bash
 mamba activate claw_machine
-
+```
 Run:
-pc_calibration.py: The script to map 2D image coordinates to 3D position on tabletop (essentially a plane-to-plane homography projection, detailed usecase please refer to calibration session). 
-claw_detect.py: Receive the instruction, load the pretrained model as specified in models.py, detect the target and feedback the mask. 
-claw_depth.py: Receive the bottom point of the mask, project it to the tabletop, estimate the centroid location of the target. 
-ur_executor.py: Connect to the robot and initialize the actionlib. 
-claw_pickup.py: Start the manipulation service.
+**pc_calibration.py**: The script to map 2D image coordinates to 3D position on tabletop (essentially a plane-to-plane homography projection, detailed usecase please refer to calibration session). 
+**claw_detect.py**: Receive the instruction, load the pretrained model as specified in models.py, detect the target and feedback the mask. 
+**claw_depth.py**: Receive the bottom point of the mask, project it to the tabletop, estimate the centroid location of the target. 
+**ur_executor.py**: Connect to the robot and initialize the actionlib. 
+**claw_pickup.py**: Start the manipulation service.
 
 RUN EACH SCRIPT IN INDIVIDUAL TERMINAL
 Terminal 2A: Calibration  
@@ -124,6 +98,35 @@ Terminal 2E: Manipulation
 source ~/claw_machine/devel/setup.bash
 mamba activate claw_machine
 python claw_pickup.py
+### Run sys_lux.launch
+Run the remote ROS node and publish multiple data to topics.
+### Run pc_calibration.py
+
+When there is no `calibration_data.json` file, it will trigger the new calibration progress. But if there is one such file, the program will load it by default. Please delete the file if you want to re-calibrate the homography transform matrix.
+
+ - For image point input, run `python pc_calibration.py`, select four points in counterclockwise order. The order of the points is indicated by number. Remember to input the pointcloud coordinates accordingly.
+ - For point cloud points input, run `rostopic echo /clicked_point`, select `Publish point` in rviz, click the bottom of each ball, the coordinates will be published into `/clicked_point` topic. Input them into the terminal. Make sure the fixed frame of rviz is 'realsense_wrist_link'.
+ - The selected 2D pixel coordinates will be stored in parameter `/calibration/points_2d`, the corresponindg 3D pointcloud coordinates will be stored in parameter `/calibration/points_3d`, and the calculated homography matrix is stored in `/calibration/H`.
+### Run claw_detection.py (ready for being called by call_detect_service.py)
+Load the pretrained checkpoint of GroundingDINO and Segment-Anything.
+
+### Run claw_depth.py (ready for being called by call_depth_service.py)
+The center point is published to `..... ` TODO: Add the pipeline diagram and the architecture of the topics in readme.
+
+### Run ur_executor.py and claw_pickup.py (ready for being called by call_pickup_service.py)
+
+
+LAUNCH CONNECTION WITH ROBOT AND ROSCORE
+Terminal 1:    
+cd ~/Sources/png_ws/
+source setup.bash
+roslaunch lab_launch sys_lux.launch
+
+RUN ALL SCRIPTS WITH ONE COMMAND
+Terminal 2:
+cd ~/claw_machine/src/pickup/launch/    
+./claw_machine.sh
+
 
 This script starts the manipulation service, which can be called by call_pickup_service.py.
 
