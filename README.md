@@ -4,11 +4,14 @@
 **Model used:** 
 GPT, GroundingDINO, Segment-Anything\
 Implementation of GroundingDINO:\
-https://github.com/IDEA-Research/GroundingDINO/tree/main\
+https://github.com/IDEA-Research/GroundingDINO/tree/main
+
 Implementaion of SAM: \
-https://github.com/facebookresearch/segment-anything\
+https://github.com/facebookresearch/segment-anything
+
 In SAM, the checkpoint used is vit-h:\
-https://github.com/facebookresearch/segment-anything#model-checkpoints\
+https://github.com/facebookresearch/segment-anything#model-checkpoints
+
 A script to download the pretrained groundingDINO and sam models:\
 https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download_ckpt.sh
 
