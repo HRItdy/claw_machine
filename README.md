@@ -74,7 +74,7 @@ Run `rostopic echo /clicked_point`, select `Publish point` function in rviz, cli
 
 After calibration, the selected 2D pixel coordinates will be stored in parameter `/calibration/points_2d`, the corresponindg 3D pointcloud coordinates will be stored in parameter `/calibration/points_3d`, and the calculated homography matrix is stored in `/calibration/H`. All these info will be stored in `calibration_data.json` file.\
 
-**Terminal 2B:  Detection**\
+**Terminal 2B:  Detection**
 ```python
 source ~/claw_machine/devel/setup.bash
 mamba activate claw_machine
@@ -84,7 +84,7 @@ python claw_detect.py
 #NOTE: Change the model path in models.py if the host machine is changed. In future will change this path to relative path.
 This script starts the detection service, which can be called by `call_detect_service.py`.
 
-**Terminal 2C: 3D Position Estimate**\
+**Terminal 2C: 3D Position Estimate**
 ```python
 source ~/claw_machine/devel/setup.bash
 mamba activate claw_machine
@@ -93,7 +93,7 @@ python claw_depth.py
 
 This script starts the depth service, which can be called by `call_depth_service.py`.
 
-**Terminal 2D: Initialize Robot**\     
+**Terminal 2D: Initialize Robot**
 ```python
 source ~/claw_machine/devel/setup.bash
 mamba activate claw_machine
@@ -102,7 +102,7 @@ python ur_executor.py
 
 This script will initialize the robot and the actionlib.
 
-**Terminal 2E: Manipulation**\     
+**Terminal 2E: Manipulation**     
 ```python
 source ~/claw_machine/devel/setup.bash
 mamba activate claw_machine
