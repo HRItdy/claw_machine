@@ -43,7 +43,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 
 ## How to use:
 ### LAUNCH CONNECTION WITH ROBOT AND ROSCORE
-Terminal 1:
+**Terminal 1:**
 ```python
 cd ~/Sources/png_ws/
 source setup.bash
@@ -51,7 +51,7 @@ roslaunch lab_launch sys_lux.launch
 ```
 
 ### RUN ALL SCRIPTS WITH ONE COMMAND 
-Terminal 2:
+**Terminal 2:**
 ```python
 cd ~/claw_machine/src/pickup/launch/    
 ./claw_machine.sh
