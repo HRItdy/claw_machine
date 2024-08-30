@@ -129,7 +129,11 @@ Let's start with installation of cuda.
 
 Reference: https://blog.csdn.net/leo0308/article/details/136414444
 
-1. Go to https://developer.nvidia.com/cuda-toolkit-archive to find the version desired.
-Assume you already installed cuda (nvidia-smi can be called normally). Then need to install cuda-toolkit. You can install multiple versions of cuda-toolkit, and indicate the version you want by exporting it into `~/.bashrc` 
+1. Assume you already installed cuda (nvidia-smi can be called normally). Then need to install cuda-toolkit. Go to https://developer.nvidia.com/cuda-toolkit-archive to find the version desired.
 
-
+2. You can install multiple versions of cuda-toolkit, and indicate the version to be used by adding these to `~/.bashrc`
+   ```python
+   export PATH=/usr/local/cuda-11.8/bin:$PATH
+   export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64:$LD_LIBRARY_PATH
+   export CUDA_HOME=/usr/local/cuda-11.8 # GroundingDINO requires to set such environment variable
+   '''
