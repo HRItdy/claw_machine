@@ -170,4 +170,15 @@ https://docs.nvidia.com/deeplearning/tensorrt/install-guide/index.html
     cudnn9-cuda-11 : Depends: cudnn9-cuda-11-8 (>= 9.3.0.75) but it is not going to be installed
    E: Unable to correct problems, you have held broken packages.
    ```
+   If so, run
+   ```
+   sudo apt-get remove --purge cudnn-cuda-12
+   ```
+
+   or
    
+   ```
+   sudo apt-get install cudnn9-cuda-11-8
+   ```
+
+   Then retry.
