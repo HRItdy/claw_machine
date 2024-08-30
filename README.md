@@ -126,7 +126,10 @@ This script starts the manipulation service, which can be called by `call_pickup
 If use a real-time version of OWL-ViT: https://github.com/NVIDIA-AI-IOT/nanoowl or use cuda to accelerate GroundingDINO. You need to install cuda toolkit.
 
 Let's start with installation of cuda. 
-https://blog.csdn.net/leo0308/article/details/136414444
+
+Reference: https://blog.csdn.net/leo0308/article/details/136414444
+
+1. Go to https://developer.nvidia.com/cuda-toolkit-archive to find the version desired.
 Assume you already installed cuda (nvidia-smi can be called normally). Then need to install cuda-toolkit. You can install multiple versions of cuda-toolkit, and indicate the version you want by exporting it into `~/.bashrc` 
 
 
