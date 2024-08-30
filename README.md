@@ -145,6 +145,29 @@ The difference between the cuda version shown in `nvidia-smi` and `cuda-toolkit`
    or check whether the file structure is the same as described in: https://saturncloud.io/blog/how-to-locate-cuda-installation-on-linux/
 
 **2. Then let's install the tensorRT.**
+
 Need to install `tensorRT` first, because `torch2trt` is depended on `tensorRT`.
 Reference: https://medium.com/kgxperience/how-to-install-tensorrt-a-comprehensive-guide-99557c0e9d6 (start from `Downloading cuDNN for Linux`)
 https://docs.nvidia.com/deeplearning/tensorrt/install-guide/index.html
+
+1. Check the version of cuDNN to use: https://docs.nvidia.com/deeplearning/cudnn/latest/reference/support-matrix.html
+   Download cuDNN: https://developer.nvidia.com/cudnn
+
+   Previously I installed `cudn-cuda-12`, so it raised the error:
+   ```
+   sudo apt-get -y install cudnn-cuda-11
+   Reading package lists... Done
+   Building dependency tree       
+   Reading state information... Done
+   Note, selecting 'cudnn9-cuda-11' instead of 'cudnn-cuda-11'
+   Some packages could not be installed. This may mean that you have
+   requested an impossible situation or if you are using the unstable
+   distribution that some required packages have not yet been created
+   or been moved out of Incoming.
+   The following information may help to resolve the situation:
+   
+   The following packages have unmet dependencies:
+    cudnn9-cuda-11 : Depends: cudnn9-cuda-11-8 (>= 9.3.0.75) but it is not going to be installed
+   E: Unable to correct problems, you have held broken packages.
+   ```
+   
