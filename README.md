@@ -125,15 +125,26 @@ This script starts the manipulation service, which can be called by `call_pickup
 
 If use a real-time version of OWL-ViT: https://github.com/NVIDIA-AI-IOT/nanoowl or use cuda to accelerate GroundingDINO. You need to install cuda toolkit.
 
-Let's start with installation of cuda. 
+**1. Let's start with installation of cuda.**
 
 Reference: https://blog.csdn.net/leo0308/article/details/136414444
+The difference between the cuda version shown in `nvidia-smi` and `cuda-toolkit`: https://forums.developer.nvidia.com/t/nvdia-smi-show-cuda-version-but-nvcc-not-found/67311
 
 1. Assume you already installed cuda (nvidia-smi can be called normally). Then need to install cuda-toolkit. Go to https://developer.nvidia.com/cuda-toolkit-archive to find the version desired.
 
-2. You can install multiple versions of cuda-toolkit, and indicate the version to be used by adding these to `~/.bashrc`
+2. You can install multiple versions of cuda-toolkit, and indicate the version to be used in `~/.bashrc`. Take `cuda-11.8` as one example. 
    ```python
    export PATH=/usr/local/cuda-11.8/bin:$PATH
    export LD_LIBRARY_PATH=/usr/local/cuda-11.8/lib64:$LD_LIBRARY_PATH
    export CUDA_HOME=/usr/local/cuda-11.8 # GroundingDINO requires to set such environment variable
-   '''
+   ```
+   To verify the installation, run
+   ```python
+   nvcc -V
+   ```
+   or check whether the file structure is the same as described in: https://saturncloud.io/blog/how-to-locate-cuda-installation-on-linux/
+
+**2. Then let's install the tensorRT.**
+Need to install `tensorRT` first, because `torch2trt` is depended on `tensorRT`.
+Reference: https://medium.com/kgxperience/how-to-install-tensorrt-a-comprehensive-guide-99557c0e9d6 (start from `Downloading cuDNN for Linux`)
+https://docs.nvidia.com/deeplearning/tensorrt/install-guide/index.html
