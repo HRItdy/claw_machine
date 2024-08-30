@@ -121,3 +121,6 @@ python claw_pickup.py
 ```
 This script starts the manipulation service, which can be called by `call_pickup_service.py`.
 
+### USE REAL-TIME OWL-ViT
+
+https://github.com/NVIDIA-AI-IOT/nanoowl
