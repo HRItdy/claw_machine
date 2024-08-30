@@ -144,7 +144,7 @@ The difference between the cuda version shown in `nvidia-smi` and `cuda-toolkit`
    ```
    or check whether the file structure is the same as described in: https://saturncloud.io/blog/how-to-locate-cuda-installation-on-linux/
 
-**2. Then let's install the tensorRT.**
+**2. Install tensorRT.**
 
 Need to install `tensorRT` first, because `torch2trt` is depended on `tensorRT`.
 Reference: https://medium.com/kgxperience/how-to-install-tensorrt-a-comprehensive-guide-99557c0e9d6 (start from `Downloading cuDNN for Linux`)
@@ -174,11 +174,77 @@ https://docs.nvidia.com/deeplearning/tensorrt/install-guide/index.html
    ```
    sudo apt-get remove --purge cudnn-cuda-12
    ```
-
    or
-   
    ```
    sudo apt-get install cudnn9-cuda-11-8
    ```
-
    Then retry.
+
+   NOTE: Follow the instructions after the selection of cuDNN version is enough. Don't need to go back and follow the instructions in https://medium.com/kgxperience/how-to-install-tensorrt-a-comprehensive-guide-99557c0e9d6 for cuDNN.
+
+2. Install tensorRT
+   Installation guidance: https://docs.nvidia.com/deeplearning/tensorrt/install-guide/index.html
+   You can only follow `3.1. Python Package Index Installation` session.
+
+   If you encountered:
+   ```
+   WARNING: Error parsing dependencies of torch: [Errno 2] No such file or directory: '/home/lab_cheem/miniforge3/envs/claw_machine/lib/python3.10/site-packages/torch-2.3.1.dist-info/METADATA'
+   ```
+   when run `python3 -m pip install --upgrade pip`, and
+   ```
+   ERROR: Could not install packages due to an OSError: [Errno 2] No such file or directory: '/home/lab_cheem/miniforge3/envs/claw_machine/lib/python3.10/site-packages/torch-2.3.1.dist-info/METADATA'
+   ```
+   when run `pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118`,
+   run `rm -rf /home/lab_cheem/miniforge3/envs/claw_machine/lib/python3.10/site-packages/torch*`, then install torch torchvision torchaudio again. Reference (asked GPT): https://chatgpt.com/share/4d0d57b9-18b4-4343-a615-8e1b94288a69
+
+   Then follow the installation guidance and verify the installation.
+   If encountered
+   ```
+   [TRT] [W] CUDA lazy loading is not enabled. Enabling it can significantly reduce device memory usage and speed up TensorRT initialization. See "Lazy Loading" section of CUDA documentation https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#lazy-loading
+   ```
+   Try `export CUDA_MODULE_LOADING=LAZY` or `echo 'export CUDA_MODULE_LOADING=LAZY' >> ~/.bashrc` and `source ~/.bashrc` for permanent configuration.
+
+   NOTE: This is only the installation of python support!!! You need to install the local tensorRT using debian or other manners. I used debian. Refer to `3.2.1. Debian Installation` session.
+   When I run `sudo apt-get install tensorrt`, don't know why it cannot be installed.
+   The error is like:
+   ```
+   N: Skipping acquire of configured file 'main/binary-i386/Packages' as repository 'https://brave-browser-apt-release.s3.brave.com stable InRelease' doesn't support architecture 'i386'
+   W: GPG error: https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64  InRelease: The following signatures couldn't be verified because the public key is not available: NO_PUBKEY A4B469963BF863CC
+   E: The repository 'https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64  InRelease' is not signed.
+   N: Updating from such a repository can't be done securely, and is therefore disabled by default.
+   ```
+
+   The response from GPT:
+
+   ```
+   The errors you're encountering suggest two different issues:
+
+    Skipping i386 Architecture: This is not critical and only indicates that the i386 architecture is being skipped in certain repositories, which is fine if you're running a 64-bit system.
+
+    GPG Key Error for NVIDIA Repository: The more pressing issue is that the public key for the NVIDIA repository is missing, which prevents the repository from being used securely.
+   ```
+   Then I run:
+
+   ```
+   sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub
+   ```
+   and
+   ```
+   sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/7fa2af80.pub
+   ```
+
+   Then run `sudo apt-get update`, this error `E: The repository 'https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64  InRelease' is not signed.` disappeared. And then I run `sudo apt-get install tensorrt` it worked.
+   
+
+**3. Install torch2trt.**
+
+```
+git clone https://github.com/NVIDIA-AI-IOT/torch2trt
+cd torch2trt
+python setup.py install
+```
+
+**4. Install transformer.**
+```
+python3 -m pip install transformers
+```
