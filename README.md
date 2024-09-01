@@ -234,7 +234,8 @@ https://docs.nvidia.com/deeplearning/tensorrt/install-guide/index.html
    ```
 
    Then run `sudo apt-get update`, this error `E: The repository 'https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64  InRelease' is not signed.` disappeared. And then I run `sudo apt-get install tensorrt` it worked.
-   
+
+### USE REAL-TIME SAM
 
 **3. Install torch2trt.**
 
