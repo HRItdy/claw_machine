@@ -20,6 +20,10 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 2. The functions are wrapped as individual services. 
 
 **TODO:**
+
+Monday:
+- Test the cuda-version groundingDINO and SAM
+- Test the nanowrl with ["red balls", "purple balls"]
 - Enhance the groundingdino with GPT-4.
 - Now the detection is only executed once. If want to track the object, can use XMEM or recent SAM-v2.
 - Use the graspposMap to do the grasp.
