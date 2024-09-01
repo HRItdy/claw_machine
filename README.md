@@ -22,8 +22,6 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 **TODO:**
 - Enhance the groundingdino with GPT-4.
 - Now the detection is only executed once. If want to track the object, can use XMEM or recent SAM-v2.
-- Write the launch to run the nodes simultaneously.
-- Form a document.
 - Use the graspposMap to do the grasp.
 
 
