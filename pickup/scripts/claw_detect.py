@@ -24,15 +24,17 @@ parser.add_argument("--box_threshold", type=float, default=0.25, help="box thres
 parser.add_argument("--text_threshold", type=float, default=0.2, help="text threshold")
 parser.add_argument("--iou_threshold", type=float, default=0.5, help="iou threshold")
 parser.add_argument("--visualize", default=False, help="visualize intermediate data mode")
-parser.add_argument("--device", type=str, default="cpu", help="run on: 'cuda:0' for GPU 0 or 'cpu' for CPU. Default GPU 0.")
+parser.add_argument("--device", type=str, default="cuda:0", help="run on: 'cuda:0' for GPU 0 or 'cpu' for CPU. Default GPU 0.")
 cfg = parser.parse_args()
 
 class ClawDetect:
     def __init__(self, instruct):
         rospy.init_node('claw_detect', anonymous=True)
+        print('a')
         # Initialize components
+        global segmenter
         self.detector = GroundedDetection(cfg)
-        self.segmenter = DetPromptedSegmentation(cfg)
+        segmenter = DetPromptedSegmentation(cfg)
         self.color_image = None
         # Get the instruction input
         self.instruct = instruct
@@ -71,7 +73,7 @@ class ClawDetect:
         results_.append(results[0][0].unsqueeze(0))
         results_.append([results[1][0]])
         sin_pil = draw_candidate_boxes(image, results_, output_dir, stepstr='sing', save=False)
-        mask = self.segmenter.inference(image, results_[0], results_[1], output_dir, save_json=True)
+        mask = segmenter.inference(image, results_[0], results_[1], output_dir, save_json=True)
         # Save the original image
         original_image_path = os.path.join(output_dir, "original_image.png")
         image.save(original_image_path)
@@ -149,6 +151,10 @@ class ClawDetect:
         # Calculate the bottommost point of the fitted circle
         bottom_point = (int(x), int(y + radius))
         return bottom_point, (int(x), int(y)), int(radius)
+    
+def get_segmenter():
+    global segmenter
+    return segmenter
 
 if __name__ == '__main__':
     point_cloud_publisher = ClawDetect('pick up the left red ball')

@@ -10,7 +10,7 @@ class Calibrator:
         self.image = None
         self.pts_2d = []
         self.pts_3d = []
-        self.calibration_file = "calibration_data.json"
+        self.calibration_file = os.path.join(os.path.expanduser("~"), "claw_machine/src/pickup/scripts/calibration_data.json")
 
         rospy.init_node('calibration', anonymous=True)
         rospy.Subscriber('/realsense_wrist/color/image_raw', Image, self.image_callback)

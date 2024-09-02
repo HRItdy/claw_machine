@@ -1,3 +1,4 @@
+#!/home/lab_cheem/miniforge3/envs/claw_machine/bin/python3
 import open3d as o3d
 import numpy as np
 import rospy

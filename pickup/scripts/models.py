@@ -13,9 +13,9 @@ import matplotlib.pyplot as plt
 import gradio as gr
 import copy
 # ChatGPT, BLIP
+import openai
+import base64
 from transformers import BlipProcessor, BlipForConditionalGeneration
-
-
 # GrDINO, SAM
 import GroundingDINO.groundingdino.datasets.transforms as T
 from GroundingDINO.groundingdino.models import build_model
@@ -69,7 +69,7 @@ class GroundedDetection:
         print(f"Initializing GroundingDINO to {cfg.device}")
         # self.model = build_model(SLConfig.fromfile('src/pickup/scripts/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py')) #debug with vs code
         self.model = build_model(SLConfig.fromfile('GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py')) #run on real
-        checkpoint = torch.load('/home/lab_cheem/PromptCraft-Robotics/chatgpt_airsim/GroundingDINO/weights/groundingdino_swint_ogc.pth', map_location="cpu")
+        checkpoint = torch.load('/home/lab_cheem/PromptCraft-Robotics/chatgpt_airsim/GroundingDINO/weights/groundingdino_swint_ogc.pth', map_location=cfg.device)
         self.model.load_state_dict(clean_state_dict(checkpoint["model"]), strict=False)
         self.model.eval()
         self.processor = T.Compose([ 
@@ -172,14 +172,14 @@ class DetPromptedSegmentation:
             json.dump(json_data, f)
         return json_data
 
-    def inference(self, image_pil, prompt_boxes, pred_phrases, save_dir, save_json=False):
+    def inference(self, image_pil, prompt_boxes, pred_phrases, save_dir, point_coords=None, point_labels=None, save_json=False):
         image = np.array(image_pil)
         self.predictor.set_image(image)
 
         transformed_boxes = self.predictor.transform.apply_boxes_torch(prompt_boxes, image.shape[:2])
         masks, _, _ = self.predictor.predict_torch(
-            point_coords = None,
-            point_labels = None,
+            point_coords = point_coords,
+            point_labels = point_labels,
             boxes = transformed_boxes,
             multimask_output = False) # masks [n, 1, H, W], boxes_filt [n, 4]
 
@@ -188,37 +188,131 @@ class DetPromptedSegmentation:
             DetPromptedSegmentation.save_mask_json(save_dir, masks, prompt_boxes, pred_phrases)
 
         return masks
+    
+    def get_image(self, image_pil, masks, mask_color=(0, 0, 255), alpha=0.5):
+        # Convert the PIL image to a NumPy array
+        image_np = np.array(image_pil)
+        # Convert the mask to a binary mask and overlay it
+        for mask in masks:
+            # Ensure the mask is on the CPU and convert it to a NumPy array
+            mask_np = mask.detach().cpu().numpy().astype(np.uint8)[0]  # Convert mask to NumPy array and extract the mask layer
+            colored_mask = np.zeros_like(image_np, dtype=np.uint8)
+            # Create a colored mask (blue color)
+            colored_mask[mask_np > 0] = mask_color  # Blue color (0, 0, 255)
+            # Overlay the colored mask on the image with transparency
+            image_np = np.where(mask_np[..., None] > 0, 
+                                (image_np * (1 - alpha) + colored_mask * alpha).astype(np.uint8), 
+                                image_np)
+        # Convert the result back to a PIL image
+        masked_img = Image.fromarray(image_np)
+        return masked_img
 
+# class GPT4Reasoning: 
+#     def __init__(self):
+#         self.llms = ["gpt-3.5-turbo", "gpt-4", "gpt-4o"]
+#         self.split=','  
+#         self.max_tokens=100
+#         self.temperature=0.2
+#         self.prompt = [{ 'role': 'system', 'content': ''}]
+
+#     def extract_unique_nouns(self, request): 
+#         self.prompt[0]['content'] = 'Extract the unique objects in the caption. Remove all the adjectives.' + \
+#                         f'List the nouns in singular form. Split them by "{self.split} ". ' + \
+#                         f'Caption: {request}.'
+
+#         response = client.chat.completions.create(model=self.llms[0], messages=self.prompt, temperature=self.temperature, max_tokens=self.max_tokens)
+#         reply = response.choices[0].message.content
+#         unique_nouns = reply.split(':')[-1].strip() # sometimes return with "noun: xxx, xxx, xxx"
+#         return unique_nouns
+    
+#     def GroundedSAM_json_asPrompt(self, request):
+#         with open(os.path.join("outputs/", request, 'label.json'), 'r') as file:
+#             data = json.load(file)
+
+#         self.prompt[0]['content'] = 'Given the human request and the candidate objects, ' + \
+#                 'locate the target objects. the output should be a tuple (tensor(n, 4), list(n strings)),' + \
+#                 'following the style ( [[538, 622, 1082, 1237], [53, 62, 12, 37]], [candidate1 (0.43),  candidate2 (0.3)] ' + \
+#                 f'Human request: {request}. ' + \
+#                 f'JSON data: {data}. '
+
+#         response = client.chat.completions.create(model=self.llms[1], messages=self.prompt, temperature=self.temperature, max_tokens=self.max_tokens)
+#         reply = response.choices[0].message.content
+#         return reply
+    
 class GPT4Reasoning: 
-    def __init__(self):
-        self.llms = ["gpt-3.5-turbo", "gpt-4"]
-        self.split=','  
-        self.max_tokens=100 
-        self.temperature=0.2
+    def __init__(self, azure_api_key, azure_endpoint, azure_deployment_name):
+        self.llms = ["gpt-3.5-turbo", "gpt-4", "gpt-4o"]
+        self.split = ','  
+        self.max_tokens = 100
+        self.temperature = 0.2
         self.prompt = [{ 'role': 'system', 'content': ''}]
+        
+        # Azure OpenAI Service specific configurations
+        with open("config.json", "r") as f:
+            config = json.load(f)
+        
+        # Set up the Azure client configuration
+        openai.api_type = "azure"
+        openai.api_version = config["AZURE_OPENAI_VERSION"]
+        openai.api_key = config["AZURE_OPENAI_API_KEY"]
+        openai.api_base = config["AZURE_OPENAI_ENDPOINT"]
 
-    def extract_unique_nouns(self, request): 
+
+    def extract_unique_nouns(self, request, model="gpt-3.5-turbo"): 
         self.prompt[0]['content'] = 'Extract the unique objects in the caption. Remove all the adjectives.' + \
                         f'List the nouns in singular form. Split them by "{self.split} ". ' + \
                         f'Caption: {request}.'
 
-        response = client.chat.completions.create(model=self.llms[0], messages=self.prompt, temperature=self.temperature, max_tokens=self.max_tokens)
-        reply = response.choices[0].message.content
-        unique_nouns = reply.split(':')[-1].strip() # sometimes return with "noun: xxx, xxx, xxx"
-        return unique_nouns
-    
-    def GroundedSAM_json_asPrompt(self, request):
+        if model in ["gpt-3.5-turbo", "gpt-4"]:
+            response = openai.ChatCompletion.create(
+                engine=self.deployment_name,  # Azure uses "engine" instead of "model"
+                messages=self.prompt, 
+                temperature=self.temperature, 
+                max_tokens=self.max_tokens
+            )
+            reply = response.choices[0].message['content']
+            unique_nouns = reply.split(':')[-1].strip()  # sometimes return with "noun: xxx, xxx, xxx"
+            return unique_nouns
+        elif model == "gpt-4o":
+            # Additional handling for GPT-4o model if needed
+            # Placeholder for handling image and json processing, if required
+            pass
+
+    def GroundedSAM_json_asPrompt(self, request, image=None, model="gpt-3.5-turbo"):
         with open(os.path.join("outputs/", request, 'label.json'), 'r') as file:
             data = json.load(file)
 
-        self.prompt[0]['content'] = 'Given the human request and the candidate objects, ' + \
-                'locate the target objects. the output should be a tuple (tensor(n, 4), list(n strings)),' + \
-                'following the style ( [[538, 622, 1082, 1237], [53, 62, 12, 37]], [candidate1 (0.43),  candidate2 (0.3)] ' + \
-                f'Human request: {request}. ' + \
-                f'JSON data: {data}. '
+        if model in ["gpt-3.5-turbo", "gpt-4"]:
+            self.prompt[0]['content'] = 'Given the human request and the candidate objects, ' + \
+                    'locate the target objects. the output should be a tuple (tensor(n, 4), list(n strings)),' + \
+                    'following the style ( [[538, 622, 1082, 1237], [53, 62, 12, 37]], [candidate1 (0.43),  candidate2 (0.3)] ' + \
+                    f'Human request: {request}. ' + \
+                    f'JSON data: {data}. '
+        elif model == "gpt-4o":
+            if image is not None:
+                img = base64.b64encode(image).decode('utf-8')
+                with open(os.path.join("outputs/", request, 'label.json'), 'r') as file:
+                    data = json.load(file)
+                self.prompt[0]['content'] = [
+                        {"type": "text", "text": 'Given the human request and the candidate objects, ' + \
+                                                'locate the target objects. the output should be a tuple (tensor(n, 4), list(n strings)),' + \
+                                                'following the style ( [[538, 622, 1082, 1237], [53, 62, 12, 37]], [candidate1 (0.43),  candidate2 (0.3)] ' + \
+                                                f'Human request: {request}. ' + \
+                                                f'JSON data: {data}. '},
+                        {"type": "image_url", "image_url": {
+                            "url": f"data:image/png;base64,{img}"}
+                        }
+                    ]
+            else:
+                raise ValueError("Image input is required for model gpt-4o.")
 
-        response = client.chat.completions.create(model=self.llms[1], messages=self.prompt, temperature=self.temperature, max_tokens=self.max_tokens)
-        reply = response.choices[0].message.content
+        response = openai.ChatCompletion.create(
+            engine=self.deployment_name,  # Azure uses "engine" instead of "model"
+            messages=self.prompt, 
+            temperature=self.temperature, 
+            max_tokens=self.max_tokens
+        )
+        reply = response.choices[0].message['content']
         return reply
 
 def runGroundingDino(image_pil, request):
