@@ -4,3 +4,6 @@
 [submodule "pickup/scripts/GroundingDINO"]
 	path = pickup/scripts/GroundingDINO
 	url = https://github.com/IDEA-Research/GroundingDINO
+[submodule "pickup/scripts/nanoowl"]
+	path = pickup/scripts/nanoowl
+	url = https://github.com/NVIDIA-AI-IOT/nanoowl
