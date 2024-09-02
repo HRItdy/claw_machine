@@ -245,6 +245,11 @@ https://docs.nvidia.com/deeplearning/tensorrt/install-guide/index.html
 
 ### USE REAL-TIME SAM
 
+If use real time version of SAM: https://github.com/NVIDIA-AI-IOT/nanosam
+
+Due to some operation incompatibility, there are some errors:
+
+
 **3. Install torch2trt.**
 
 ```
