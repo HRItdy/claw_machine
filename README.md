@@ -24,7 +24,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 Monday:
 - Test the cuda-version groundingDINO and SAM
 - Test the nanowrl with ["red balls", "purple balls"]
-- Install nanosam
+- ~~Install nanosam~~
 - Write the gradio app, complish the reassignment of object
 - Test with multiple balls
 - Overlap retest (convert the whole rgb image into pointcloud, and select several points, decide the correspondence between rgb image and pointcloud)
