@@ -243,6 +243,19 @@ https://docs.nvidia.com/deeplearning/tensorrt/install-guide/index.html
 
    Then run `sudo apt-get update`, this error `E: The repository 'https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64  InRelease' is not signed.` disappeared. And then I run `sudo apt-get install tensorrt` it worked.
 
+**3. Install torch2trt.**
+
+```
+git clone https://github.com/NVIDIA-AI-IOT/torch2trt
+cd torch2trt
+python setup.py install
+```
+
+**4. Install transformer.**
+```
+python3 -m pip install transformers
+```
+
 ### USE REAL-TIME SAM
 
 If use real time version of SAM: https://github.com/NVIDIA-AI-IOT/nanosam
@@ -270,15 +283,4 @@ ITensor::getDimensions: Error Code 4: Internal Error (/OneHot: an IIOneHotLayer 
 [09/02/2024-17:35:22] [E] Engine set up failed
 &&&& FAILED TensorRT.trtexec [TensorRT v100300] # trtexec --onnx=data/mobile_sam_mask_decoder.onnx --saveEngine=data/mobile_sam_mask_decoder.engine --minShapes=point_coords:1x1x2,point_labels:1x1 --optShapes=point_coords:1x1x2,point_labels:1x1 --maxShapes=point_coords:1x10x2,point_labels:1x10
 ```
-**3. Install torch2trt.**
 
-```
-git clone https://github.com/NVIDIA-AI-IOT/torch2trt
-cd torch2trt
-python setup.py install
-```
-
-**4. Install transformer.**
-```
-python3 -m pip install transformers
-```
