@@ -23,7 +23,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 
 Monday:
 - Test the cuda-version groundingDINO and SAM
-- Test the nanowrl with ["red balls", "purple balls"]
+- &#10004 Test the nanowrl with ["red balls", "purple balls"]
 - ~~Install nanosam~~
 - Write the gradio app, complish the reassignment of object
 - Test with multiple balls
