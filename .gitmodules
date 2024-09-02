@@ -7,3 +7,6 @@
 [submodule "pickup/scripts/nanoowl"]
 	path = pickup/scripts/nanoowl
 	url = https://github.com/NVIDIA-AI-IOT/nanoowl
+[submodule "pickup/scripts/nanosam"]
+	path = pickup/scripts/nanosam
+	url = https://github.com/NVIDIA-AI-IOT/nanosam
