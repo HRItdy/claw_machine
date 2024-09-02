@@ -249,7 +249,27 @@ If use real time version of SAM: https://github.com/NVIDIA-AI-IOT/nanosam
 
 Due to some operation incompatibility, there are some errors:
 
+```
+[E] Error[4]: ITensor::getDimensions: Error Code 4: Internal Error (/OneHot: an IIOneHotLayer cannot be used to compute a shape tensor)
+[09/02/2024-17:35:22] [E] [TRT] ModelImporter.cpp:949: While parsing node number 146 [Tile -> "/Tile_output_0"]:
+[09/02/2024-17:35:22] [E] [TRT] ModelImporter.cpp:950: --- Begin node ---
+input: "/Unsqueeze_3_output_0"
+input: "/Reshape_2_output_0"
+output: "/Tile_output_0"
+name: "/Tile"
+op_type: "Tile"
 
+[09/02/2024-17:35:22] [E] [TRT] ModelImporter.cpp:951: --- End node ---
+[09/02/2024-17:35:22] [E] [TRT] ModelImporter.cpp:954: ERROR: ModelImporter.cpp:195 In function parseNode:
+[6] Invalid Node - /Tile
+ITensor::getDimensions: Error Code 4: Internal Error (/OneHot: an IIOneHotLayer cannot be used to compute a shape tensor)
+[09/02/2024-17:35:22] [E] Failed to parse onnx file
+[09/02/2024-17:35:22] [I] Finished parsing network model. Parse time: 0.0483808
+[09/02/2024-17:35:22] [E] Parsing model failed
+[09/02/2024-17:35:22] [E] Failed to create engine from model or file.
+[09/02/2024-17:35:22] [E] Engine set up failed
+&&&& FAILED TensorRT.trtexec [TensorRT v100300] # trtexec --onnx=data/mobile_sam_mask_decoder.onnx --saveEngine=data/mobile_sam_mask_decoder.engine --minShapes=point_coords:1x1x2,point_labels:1x1 --optShapes=point_coords:1x1x2,point_labels:1x1 --maxShapes=point_coords:1x10x2,point_labels:1x10
+```
 **3. Install torch2trt.**
 
 ```
