@@ -46,4 +46,3 @@ def call_depth_service():
 
 if __name__ == "__main__":
     position = call_depth_service()
-    print('centroid position found')

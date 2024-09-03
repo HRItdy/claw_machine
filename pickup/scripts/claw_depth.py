@@ -351,7 +351,7 @@ def get_3d_position(req):
 def get_3d_position_server():
     rospy.init_node('get_3d_position_server')
     service = rospy.Service('get_3d_position', Get3DPosition, get_3d_position)
-    rospy.loginfo("Ready to get 3D position.")
+    rospy.loginfo("Ready to estimate 3D position.")
     rospy.spin()
 
 # def main():

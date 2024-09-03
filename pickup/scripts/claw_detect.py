@@ -14,6 +14,7 @@ from PIL import Image as Img, ImageOps, ImageDraw
 import os
 import copy
 import cv2
+from cv_bridge import CvBridge
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
@@ -30,15 +31,16 @@ cfg = parser.parse_args()
 class ClawDetect:
     def __init__(self, instruct):
         rospy.init_node('claw_detect', anonymous=True)
-        print('a')
         # Initialize components
         global segmenter
+        self.bridge = CvBridge()
         self.detector = GroundedDetection(cfg)
         segmenter = DetPromptedSegmentation(cfg)
         self.color_image = None
         # Get the instruction input
         self.instruct = instruct
         self.color_sub = rospy.Subscriber('/realsense_wrist/color/image_raw', Image, self.callback)
+        self.image_pub = rospy.Publisher('/masked_image', Image, queue_size=10)  # ROS topic for processed image
         # Service server
         self.service = rospy.Service('grounding_dino', GroundingDINO, self.handle_service)
         self.rate = rospy.Rate(10)  # 10 Hz
@@ -57,6 +59,11 @@ class ClawDetect:
             return GroundingDINOResponse(cX=-1, cY=-1)
         image_pil = Img.fromarray(self.color_image)
         mask = self.process_image(image_pil, req.instruction)
+        masked_img = segmenter.get_image(image_pil, mask)
+        # Convert the processed image to a ROS Image message and publish it
+        masked_img = np.array(masked_img)
+        ros_image = self.bridge.cv2_to_imgmsg(masked_img, encoding="rgb8")
+        self.image_pub.publish(ros_image)
         print('Image has been processed.')
         return GroundingDINOResponse(cX=self.cX, cY=self.cY)
 

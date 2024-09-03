@@ -67,9 +67,11 @@ class GroundedDetection:
     # GroundingDino
     def __init__(self, cfg):
         print(f"Initializing GroundingDINO to {cfg.device}")
-        # self.model = build_model(SLConfig.fromfile('src/pickup/scripts/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py')) #debug with vs code
-        self.model = build_model(SLConfig.fromfile('GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py')) #run on real
-        checkpoint = torch.load('/home/lab_cheem/PromptCraft-Robotics/chatgpt_airsim/GroundingDINO/weights/groundingdino_swint_ogc.pth', map_location=cfg.device)
+        usrp = os.path.expanduser("~")
+        mpath = os.path.join(usrp, 'claw_machine/src/pickup/scripts/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py')
+        cpath = os.path.join(usrp, 'PromptCraft-Robotics/chatgpt_airsim/GroundingDINO/weights/groundingdino_swint_ogc.pth')
+        self.model = build_model(SLConfig.fromfile(mpath)) #run on real
+        checkpoint = torch.load(cpath, map_location=cfg.device)
         self.model.load_state_dict(clean_state_dict(checkpoint["model"]), strict=False)
         self.model.eval()
         self.processor = T.Compose([ 
@@ -189,20 +191,17 @@ class DetPromptedSegmentation:
 
         return masks
     
-    def get_image(self, image_pil, masks, mask_color=(0, 0, 255), alpha=0.5):
+    def get_image(self, image_pil, mask, mask_color=(0, 0, 255), alpha=0.5):
         # Convert the PIL image to a NumPy array
         image_np = np.array(image_pil)
         # Convert the mask to a binary mask and overlay it
-        for mask in masks:
-            # Ensure the mask is on the CPU and convert it to a NumPy array
-            mask_np = mask.detach().cpu().numpy().astype(np.uint8)[0]  # Convert mask to NumPy array and extract the mask layer
-            colored_mask = np.zeros_like(image_np, dtype=np.uint8)
-            # Create a colored mask (blue color)
-            colored_mask[mask_np > 0] = mask_color  # Blue color (0, 0, 255)
-            # Overlay the colored mask on the image with transparency
-            image_np = np.where(mask_np[..., None] > 0, 
-                                (image_np * (1 - alpha) + colored_mask * alpha).astype(np.uint8), 
-                                image_np)
+        colored_mask = np.zeros_like(image_np, dtype=np.uint8)
+        # Create a colored mask (blue color)
+        colored_mask[mask > 0] = mask_color  # Blue color (0, 0, 255)
+        # Overlay the colored mask on the image with transparency
+        image_np = np.where(mask[..., None] > 0, 
+                            (image_np * (1 - alpha) + colored_mask * alpha).astype(np.uint8), 
+                            image_np)
         # Convert the result back to a PIL image
         masked_img = Image.fromarray(image_np)
         return masked_img
