@@ -25,9 +25,7 @@ Monday:
 - &#10004; Test the cuda-version groundingDINO and SAM
 - &#10004; Test the nanowrl with ["red balls", "purple balls"]
 - ~~Install nanosam~~
-- Write the gradio app, complish the reassignment of object
-     - Frequently refresh will shorten the time for click event establish, which results in miss of click on image.
-     - Tklinker can work well. But not sure whether it's easy to combine with speech-to-text.
+- &#10004; Write the gradio app, complish the reassignment of object
 - Test with multiple balls
 - Overlap retest (convert the whole rgb image into pointcloud, and select several points, decide the correspondence between rgb image and pointcloud)
 - Add real-time interaction, service launch and redetect into the gradio app.
