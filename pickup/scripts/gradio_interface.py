@@ -1,94 +1,192 @@
-import subprocess
-import threading
-import os
-# import queue
-import gradio as gr
 import rospy
+import queue
+import tkinter as tk
 from sensor_msgs.msg import Image
-from cv_bridge import CvBridge, CvBridgeError
-import cv2
-import numpy as np
-import threading
-from PIL import Image as Img
+from PIL import Image as PILImage, ImageTk, ImageDraw
+from call_detect_service import call_segment_service
 
-usrp = os.path.expanduser("~")
-# output_queue = queue.Queue()
-# output_log = []  # List to store all output lines
-bridge = CvBridge()
-# Global variable to store the masked image
-masked_image = None
-image_size = (640, 480)
+# Global variables
+latest_image = None  # For camera feed
+image_queue = queue.Queue()  # Thread-safe queue for detected images
+clickable_buttons = False  # For enabling/disabling buttons
+click_x, click_y = None, None  # Coordinates for the point marker
 
-# ROS callback function to receive the processed image
-def image_callback(msg):
-    global masked_image
-    # Convert ROS Image message to a numpy array
-    masked_image = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, -1)
-    pil_image = Img.fromarray(masked_image, 'RGB')
-    # Resize the image to half its size
-    pil_image = pil_image.resize(image_size)
-    # Convert the PIL image back to a numpy array for Gradio
-    masked_image = np.array(pil_image)
-       
-# Initialize the ROS node and subscriber in the Gradio app
-def ros_listener():
-    rospy.Subscriber('/masked_image', Image, image_callback)
-    rospy.spin()
+# Publisher for the modified image with the marker
+marker_image_pub = rospy.Publisher('/masked_image_with_marker', Image, queue_size=1)
 
-def launch_ros_services():
-    # Call the shell script to start ROS services
-    shell_script_path = "/home/lab_cheem/claw_machine/src/pickup/launch/claw_machine_gradio.sh"
-    process = subprocess.Popen(['bash', shell_script_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    # Capture the output (optional)
-    # threading.Thread(target=enqueue_output, args=(process.stdout, output_queue)).start()
-    # threading.Thread(target=enqueue_output, args=(process.stderr, output_queue)).start()
-    return "ROS Services started"
+# Function to safely update the camera image in Tkinter
+def update_image():
+    global latest_image
+    if latest_image:
+        resized_image = latest_image.resize((640, 480))  # Resize to fixed size
+        imgtk = ImageTk.PhotoImage(image=resized_image)
+        camera_label.imgtk = imgtk
+        camera_label.config(image=imgtk)
+    root.after(10, update_image)
 
-# def enqueue_output(pipe, q):
-#     for line in iter(pipe.readline, ''):
-#         q.put(line)
-#     pipe.close()
+# Update the detected window safely in the main thread
+def update_detected_window():
+    global clickable_buttons, click_x, click_y
+    try:
+        # Check if there's a new image in the queue
+        if not image_queue.empty():
+            detected_image = image_queue.get_nowait()
 
-# def store_and_get_ros_output():
-#     global output_log
-#     while not output_queue.empty():
-#         line = output_queue.get()
-#         output_log.append(line)
-#     return "".join(output_log)  # Combine all lines in the list into a single string
+            # If a click was registered, draw a red marker on the image
+            if click_x is not None and click_y is not None:
+                detected_image = detected_image.copy()
+                draw = ImageDraw.Draw(detected_image)
+                radius = 5
+                draw.ellipse((click_x - radius, click_y - radius, click_x + radius, click_y + radius), fill='red')
 
-def stop_ros_services():
-    shell_script_path = "/home/lab_cheem/claw_machine/src/pickup/launch/shutdown_claw.sh"
-    process = subprocess.Popen(['bash', shell_script_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    return "ROS Services stopped"
+                # Publish the image with the marker
+                publish_image_with_marker(detected_image)
 
-# === Gradio Interface ===
-with gr.Blocks() as demo:
-    gr.Markdown("# Humanoid Robot Control Interface")
-    
-    with gr.Row():
-        start_services_btn = gr.Button("Start ROS Services")
-        shutdown_btn = gr.Button("Shutdown ROS Services")
-    
-    start_services_btn.click(fn=launch_ros_services, inputs=None, outputs=None)
-    shutdown_btn.click(fn=stop_ros_services, inputs=None, outputs=None)
-    
-    # # Scrollable output window
-    # ros_output_textbox = gr.Textbox(label="ROS Output", lines=10, interactive=False, elem_id="scrollable-output")
-    # refresh_btn = gr.Button("Refresh ROS Output")
-    # refresh_btn.click(fn=store_and_get_ros_output, inputs=None, outputs=ros_output_textbox)
-    # demo.load(fn=store_and_get_ros_output, outputs=ros_output_textbox, every=2.0)
-    
-    gr.Markdown("## Detection Result Image")
-    detection_img = gr.Image(label="Masked Image", elem_id="mask-result-image", width=image_size[0], height=image_size[1], type='numpy')
-    # Periodically check if a new image is received
-    def update_image():
-        return masked_image if masked_image is not None else None
-    demo.load(fn=update_image, outputs=detection_img, every=1.0)
+            # Resize image to 640x480 for Tkinter display
+            resized_image = detected_image.resize((640, 480))
+            imgtk = ImageTk.PhotoImage(image=resized_image)
+            detected_window_label.imgtk = imgtk
+            detected_window_label.config(image=imgtk)
 
-if __name__ == "__main__":
-    # Start the ROS listener in a separate thread
-    rospy.init_node('gradio_listener', anonymous=True)
-    ros_thread = threading.Thread(target=ros_listener, daemon=True)
-    ros_thread.start()
+            # Enable buttons and update chat message
+            clickable_buttons = True
+            chat_text.config(state=tk.NORMAL)
+            chat_text.delete(1.0, tk.END)
+            chat_text.insert(tk.END, "Is this the ball you want?")
+            chat_text.config(state=tk.DISABLED)
+            yes_button.config(state=tk.NORMAL)
+            no_button.config(state=tk.NORMAL)
+    except queue.Empty:
+        pass
 
-    demo.launch()
+    # Schedule this function to be called again after 100ms
+    root.after(100, update_detected_window)
+
+# Callback for camera feed topic (runs in ROS thread)
+def image_callback(ros_image):
+    global latest_image
+    latest_image = convert_ros_image_to_pil(ros_image)
+
+# Callback for masked image topic (runs in ROS thread)
+def masked_image_callback(ros_image):
+    detected_image = convert_ros_image_to_pil(ros_image)
+    if detected_image:
+        # Add the image to the queue for the main thread to handle
+        image_queue.put(detected_image)
+
+# Helper function to convert ROS Image to PIL Image
+def convert_ros_image_to_pil(ros_image):
+    try:
+        width, height = ros_image.width, ros_image.height
+        image_data = bytes(ros_image.data)
+
+        # Create PIL image from raw byte data
+        pil_image = PILImage.frombytes('RGB', (width, height), image_data)
+        return pil_image
+    except Exception as e:
+        rospy.logerr(f"Error processing image: {e}")
+        return None
+
+# Function to convert a PIL Image back to ROS Image message
+def convert_pil_to_ros_image(pil_image, ros_image):
+    try:
+        ros_image.header.stamp = rospy.Time.now()
+        ros_image.height, ros_image.width = pil_image.size[1], pil_image.size[0]
+        ros_image.encoding = "rgb8"
+        ros_image.is_bigendian = False
+        ros_image.step = ros_image.width * 3
+        ros_image.data = pil_image.tobytes()
+        return ros_image
+    except Exception as e:
+        rospy.logerr(f"Error converting PIL to ROS Image: {e}")
+        return None
+
+# Function to handle mouse clicks and get coordinates in detected window
+def get_click(event):
+    global click_x, click_y
+    if clickable_buttons:
+        click_x, click_y = event.x, event.y
+        print(f"Clicked at: {click_x}, {click_y}")
+        # Redraw the detected window with a marker
+        update_detected_window()
+        # Call the object detection function with the click coordinates
+        call_segment_service(click_x, click_y)
+
+# Function to publish the modified image with the marker
+def publish_image_with_marker(pil_image):
+    try:
+        ros_image = Image()
+        # Convert the PIL image to a ROS Image message
+        ros_image = convert_pil_to_ros_image(pil_image, ros_image)
+
+        # Publish the image with the marker
+        marker_image_pub.publish(ros_image)
+    except Exception as e:
+        rospy.logerr(f"Error publishing image with marker: {e}")
+
+# Function for "Yes" button click
+def on_yes_click():
+    print("Yes button clicked!")
+    call_gpt()  # Placeholder for the GPT function
+
+# Function for "No" button click
+def on_no_click():
+    print("No button clicked!")
+    detected_window_label.bind("<Button-1>", get_click)  # Bind click event to the detected window
+
+# Placeholder function for GPT processing
+def call_gpt():
+    print("Processing with GPT...")
+
+# Initialize ROS node
+rospy.init_node('camera_gui', anonymous=True)
+
+# Subscribe to camera topic and masked image topic
+rospy.Subscriber('/realsense_wrist/color/image_raw', Image, image_callback)
+rospy.Subscriber('/masked_image', Image, masked_image_callback)
+
+# Create the main Tkinter window
+root = tk.Tk()
+root.title("Speech Interaction Robot")
+
+# Create a frame to hold both the camera feed and detected image windows horizontally
+image_frame = tk.Frame(root)
+image_frame.pack()
+
+# Create a label to display the camera feed
+camera_label = tk.Label(image_frame, bg="gray")
+camera_label.pack(side=tk.LEFT, padx=10, pady=10)
+
+# Create a "Detected Window" for displaying the masked image, with a blank placeholder initially
+detected_window_label = tk.Label(image_frame, bg="gray")
+detected_window_label.pack(side=tk.LEFT, padx=10, pady=10)
+
+# Fix the window size for both labels to 640x480
+camera_label.config(width=640, height=480)
+detected_window_label.config(width=640, height=480)
+
+# Create a chat text box to show robot's messages
+chat_label = tk.Label(root, text="Chat from Robot:")
+chat_label.pack()
+chat_text = tk.Text(root, height=2, width=30, state=tk.DISABLED)
+chat_text.pack()
+
+# Add "Yes" and "No" buttons, initially disabled
+yes_button = tk.Button(root, text="Yes", command=on_yes_click, state=tk.DISABLED)
+no_button = tk.Button(root, text="No", command=on_no_click, state=tk.DISABLED)
+yes_button.pack(side=tk.LEFT, padx=10, pady=10)
+no_button.pack(side=tk.LEFT, padx=10, pady=10)
+
+# Start the Tkinter image update loop
+root.after(10, update_image)
+
+# Start the detected image update loop
+root.after(100, update_detected_window)
+
+# Run Tkinter main loop and ROS spin in parallel
+def tk_loop():
+    while not rospy.is_shutdown():
+        root.update_idletasks()
+        root.update()
+
+tk_loop()

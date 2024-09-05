@@ -4,8 +4,8 @@
 
 import rospy
 import numpy as np
-from models import runGroundingDino, GroundedDetection, DetPromptedSegmentation, draw_candidate_boxes
-from pickup.srv import GroundingDINO, GroundingDINOResponse, StoreMask
+from models import runGroundingDino, GroundedDetection, DetPromptedSegmentation, draw_candidate_boxes, OpenOWLDetection
+from pickup.srv import GroundingDINO, GroundingDINOResponse, SamPoint, SamPointResponse, OwlGpt, OwlGptResponse
 from geometry_msgs.msg import Point32
 from std_msgs.msg import Header, Bool, Int32MultiArray, MultiArrayDimension
 from sensor_msgs.msg import Image, PointCloud, CameraInfo
@@ -32,17 +32,19 @@ class ClawDetect:
     def __init__(self, instruct):
         rospy.init_node('claw_detect', anonymous=True)
         # Initialize components
-        global segmenter
         self.bridge = CvBridge()
         self.detector = GroundedDetection(cfg)
-        segmenter = DetPromptedSegmentation(cfg)
+        self.segmenter = DetPromptedSegmentation(cfg)
+        self.owlvit = OpenOWLDetection()
         self.color_image = None
         # Get the instruction input
         self.instruct = instruct
         self.color_sub = rospy.Subscriber('/realsense_wrist/color/image_raw', Image, self.callback)
         self.image_pub = rospy.Publisher('/masked_image', Image, queue_size=10)  # ROS topic for processed image
         # Service server
-        self.service = rospy.Service('grounding_dino', GroundingDINO, self.handle_service)
+        self.gr_service = rospy.Service('grounding_dino', GroundingDINO, self.handle_gr_service)
+        self.sam_service = rospy.Service('sam_point', SamPoint, self.handle_sam_service)
+        self.owl_service = rospy.Service('owl_gpt', OwlGpt, self.handle_owl_service)
         self.rate = rospy.Rate(10)  # 10 Hz
         rospy.spin()
 
@@ -52,20 +54,64 @@ class ClawDetect:
         if self.color_image is None:
             rospy.logwarn("Empty images received.")
             return
-   
-    def handle_service(self, req):
+        
+        # Check if the view png exists, if not, save the current image
+        ppng = os.path.join(os.path.expanduser("~"), "claw_machine/src/pickup/scripts/cache/view.png")
+        if not os.path.exists(ppng):
+            # Convert the image to PIL format and save it as 'a.png'
+            img = Img.fromarray(self.color_image)
+            img.save(ppng)
+        else:
+            pass 
+        
+    def handle_gr_service(self, req):
         if self.color_image is None:
             rospy.logwarn("No image received yet.")
             return GroundingDINOResponse(cX=-1, cY=-1)
         image_pil = Img.fromarray(self.color_image)
         mask = self.process_image(image_pil, req.instruction)
-        masked_img = segmenter.get_image(image_pil, mask)
+        masked_img = self.segmenter.get_image(image_pil, mask)
         # Convert the processed image to a ROS Image message and publish it
         masked_img = np.array(masked_img)
         ros_image = self.bridge.cv2_to_imgmsg(masked_img, encoding="rgb8")
         self.image_pub.publish(ros_image)
         print('Image has been processed.')
         return GroundingDINOResponse(cX=self.cX, cY=self.cY)
+    
+    def handle_sam_service(self, req):
+        if self.color_image is None:
+            rospy.logwarn("No image received yet.")
+            return SamPointResponse()
+        image_pil = Img.fromarray(self.color_image)
+        point_coord = np.array([[req.cX, req.cY]])
+        point_label = np.array([1])
+        mask = self.segmenter.inference_point(image_pil, point_coord, point_label)
+        mask = np.squeeze(mask)
+        masked_img = self.segmenter.get_image(image_pil, mask)
+        # Convert the processed image to a ROS Image message and publish it
+        masked_img = np.array(masked_img)
+        ros_image = self.bridge.cv2_to_imgmsg(masked_img, encoding="rgb8")
+        self.image_pub.publish(ros_image)
+        print('Image has been processed.')
+        return SamPointResponse()
+    
+    def handle_owl_service(self, req):
+        if self.color_image is None:
+            rospy.logwarn("No image received yet.")
+            return OwlGptResponse()
+        image_pil = Img.fromarray(self.color_image)
+        prompt = req.instruction
+        prompt = prompt.split(',')
+        output = self.owlvit.inference(image_pil, prompt)
+        json_data = self.owlvit.save_mask_json("/home/lab_cheem/claw_machine/src/pickup/scripts/cache", output, prompt)
+        # mask = self.process_image(image_pil, req.instruction)
+        # masked_img = self.segmenter.get_image(image_pil, mask)
+        # # Convert the processed image to a ROS Image message and publish it
+        # masked_img = np.array(masked_img)
+        # ros_image = self.bridge.cv2_to_imgmsg(masked_img, encoding="rgb8")
+        # self.image_pub.publish(ros_image)
+        print('Image has been processed.')
+        return OwlGptResponse()
 
     def process_image(self, image, user_request):
         if image is None:
@@ -80,7 +126,7 @@ class ClawDetect:
         results_.append(results[0][0].unsqueeze(0))
         results_.append([results[1][0]])
         sin_pil = draw_candidate_boxes(image, results_, output_dir, stepstr='sing', save=False)
-        mask = segmenter.inference(image, results_[0], results_[1], output_dir, save_json=True)
+        mask = self.segmenter.inference(image, results_[0], results_[1], output_dir, save_json=True)
         # Save the original image
         original_image_path = os.path.join(output_dir, "original_image.png")
         image.save(original_image_path)
@@ -159,9 +205,5 @@ class ClawDetect:
         bottom_point = (int(x), int(y + radius))
         return bottom_point, (int(x), int(y)), int(radius)
     
-def get_segmenter():
-    global segmenter
-    return segmenter
-
 if __name__ == '__main__':
     point_cloud_publisher = ClawDetect('pick up the left red ball')

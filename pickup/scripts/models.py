@@ -23,7 +23,7 @@ from GroundingDINO.groundingdino.util import box_ops
 from GroundingDINO.groundingdino.util.slconfig import SLConfig
 from GroundingDINO.groundingdino.util.utils import clean_state_dict, get_phrases_from_posmap
 from segment_anything import build_sam, SamPredictor 
-
+from nanoowl.owl_predictor import OwlPredictor
 
 def draw_candidate_boxes(image, det_list, output_dir, stepstr= 'targets', save=False):
     #assert stepstr in ['candidates', 'self', 'related', 'ref'], "stepstr must be one of ['self', 'related', 'ref']"
@@ -67,9 +67,8 @@ class GroundedDetection:
     # GroundingDino
     def __init__(self, cfg):
         print(f"Initializing GroundingDINO to {cfg.device}")
-        usrp = os.path.expanduser("~")
-        mpath = os.path.join(usrp, 'claw_machine/src/pickup/scripts/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py')
-        cpath = os.path.join(usrp, 'PromptCraft-Robotics/chatgpt_airsim/GroundingDINO/weights/groundingdino_swint_ogc.pth')
+        mpath = os.path.join(os.path.expanduser("~"), 'claw_machine/src/pickup/scripts/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py')
+        cpath = os.path.join(os.path.expanduser("~"), 'PromptCraft-Robotics/chatgpt_airsim/GroundingDINO/weights/groundingdino_swint_ogc.pth')
         self.model = build_model(SLConfig.fromfile(mpath)) #run on real
         checkpoint = torch.load(cpath, map_location=cfg.device)
         self.model.load_state_dict(clean_state_dict(checkpoint["model"]), strict=False)
@@ -188,10 +187,22 @@ class DetPromptedSegmentation:
         # plot_raw_boxes_masks(image, boxes_filt, masks, pred_phrases)
         if save_json == True:
             DetPromptedSegmentation.save_mask_json(save_dir, masks, prompt_boxes, pred_phrases)
-
         return masks
     
-    def get_image(self, image_pil, mask, mask_color=(0, 0, 255), alpha=0.5):
+    def inference_point(self, image_pil, point_coords, point_labels, save_dir=None, save_json=False):
+        image = np.array(image_pil)
+        self.predictor.set_image(image)
+        masks, _, _ = self.predictor.predict(
+                                    point_coords=point_coords,
+                                    point_labels=point_labels,
+                                    multimask_output=False,
+                                )
+        # # plot_raw_boxes_masks(image, boxes_filt, masks, pred_phrases)
+        # if save_json == True:
+        #     DetPromptedSegmentation.save_mask_json(save_dir, masks, prompt_boxes, pred_phrases)
+        return masks
+    
+    def get_image(self, image_pil, mask, mask_color=(0, 0, 255), alpha=0.5, save=False):
         # Convert the PIL image to a NumPy array
         image_np = np.array(image_pil)
         # Convert the mask to a binary mask and overlay it
@@ -204,42 +215,44 @@ class DetPromptedSegmentation:
                             image_np)
         # Convert the result back to a PIL image
         masked_img = Image.fromarray(image_np)
+        if save:
+            masked_img.save(os.path.join(os.path.expanduser("~"), 'claw_machine/src/pickup/scripts/cache/view.png'))
         return masked_img
-
-# class GPT4Reasoning: 
-#     def __init__(self):
-#         self.llms = ["gpt-3.5-turbo", "gpt-4", "gpt-4o"]
-#         self.split=','  
-#         self.max_tokens=100
-#         self.temperature=0.2
-#         self.prompt = [{ 'role': 'system', 'content': ''}]
-
-#     def extract_unique_nouns(self, request): 
-#         self.prompt[0]['content'] = 'Extract the unique objects in the caption. Remove all the adjectives.' + \
-#                         f'List the nouns in singular form. Split them by "{self.split} ". ' + \
-#                         f'Caption: {request}.'
-
-#         response = client.chat.completions.create(model=self.llms[0], messages=self.prompt, temperature=self.temperature, max_tokens=self.max_tokens)
-#         reply = response.choices[0].message.content
-#         unique_nouns = reply.split(':')[-1].strip() # sometimes return with "noun: xxx, xxx, xxx"
-#         return unique_nouns
     
-#     def GroundedSAM_json_asPrompt(self, request):
-#         with open(os.path.join("outputs/", request, 'label.json'), 'r') as file:
-#             data = json.load(file)
-
-#         self.prompt[0]['content'] = 'Given the human request and the candidate objects, ' + \
-#                 'locate the target objects. the output should be a tuple (tensor(n, 4), list(n strings)),' + \
-#                 'following the style ( [[538, 622, 1082, 1237], [53, 62, 12, 37]], [candidate1 (0.43),  candidate2 (0.3)] ' + \
-#                 f'Human request: {request}. ' + \
-#                 f'JSON data: {data}. '
-
-#         response = client.chat.completions.create(model=self.llms[1], messages=self.prompt, temperature=self.temperature, max_tokens=self.max_tokens)
-#         reply = response.choices[0].message.content
-#         return reply
+class OpenOWLDetection:
+     # SAM
+    def __init__(self):
+        self.predictor =  OwlPredictor(
+                            "google/owlvit-base-patch32",
+                            image_encoder_engine="/home/lab_cheem/claw_machine/src/pickup/scripts/nanoowl/data/owl_image_encoder_patch32.engine"
+                        )
+        
+    def inference(self, image_pil, prompt=["a red ball", "a purple ball"]): # prompt should be a list of descriptions
+        output = self.predictor.predict(image=image_pil, text=prompt, text_encodings=None, threshold=0.1)
+        return output
+    
+    @staticmethod
+    def save_mask_json(output_dir, output, prompt=["a red ball", "a purple ball"], caption='Ball detection results'):
+        json_data = {
+            'caption': caption,
+            'boxes':[]
+        }
+        # detech
+        boxes = output.boxes.cpu().tolist()
+        labels = output.labels.cpu().tolist()
+        scores = output.scores.cpu().tolist()
+        for box, label, score in zip(boxes, labels, scores):
+            json_data['boxes'].append({
+                'label': prompt[label],
+                'score': float(score),
+                'box': [int(x) for x in box],
+            })
+        with open(os.path.join(output_dir, 'boxes.json'), 'w') as f:
+            json.dump(json_data, f)
+        return json_data
     
 class GPT4Reasoning: 
-    def __init__(self, azure_api_key, azure_endpoint, azure_deployment_name):
+    def __init__(self, config = '/home/lab_cheem/claw_machine/src/pickup/scripts/config.json'):
         self.llms = ["gpt-3.5-turbo", "gpt-4", "gpt-4o"]
         self.split = ','  
         self.max_tokens = 100
@@ -247,7 +260,7 @@ class GPT4Reasoning:
         self.prompt = [{ 'role': 'system', 'content': ''}]
         
         # Azure OpenAI Service specific configurations
-        with open("config.json", "r") as f:
+        with open(config, "r") as f:
             config = json.load(f)
         
         # Set up the Azure client configuration
@@ -255,7 +268,6 @@ class GPT4Reasoning:
         openai.api_version = config["AZURE_OPENAI_VERSION"]
         openai.api_key = config["AZURE_OPENAI_API_KEY"]
         openai.api_base = config["AZURE_OPENAI_ENDPOINT"]
-
 
     def extract_unique_nouns(self, request, model="gpt-3.5-turbo"): 
         self.prompt[0]['content'] = 'Extract the unique objects in the caption. Remove all the adjectives.' + \
