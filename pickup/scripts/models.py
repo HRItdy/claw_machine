@@ -241,15 +241,21 @@ class OpenOWLDetection:
         boxes = output.boxes.cpu().tolist()
         labels = output.labels.cpu().tolist()
         scores = output.scores.cpu().tolist()
-        for box, label, score in zip(boxes, labels, scores):
+        label_texts = [prompt[label] for label in labels]
+        for box, label, score in zip(boxes, label_texts, scores):
             json_data['boxes'].append({
-                'label': prompt[label],
+                'label': label,
                 'score': float(score),
                 'box': [int(x) for x in box],
             })
         with open(os.path.join(output_dir, 'boxes.json'), 'w') as f:
             json.dump(json_data, f)
-        return json_data
+        return boxes, label_texts, scores
+    
+    def draw_boxes(self, image, boxes, labels):
+        det = [boxes, labels]
+        marked_img = draw_candidate_boxes(image, det, None, save=False)
+        return marked_img
     
 class GPT4Reasoning: 
     def __init__(self, config = '/home/lab_cheem/claw_machine/src/pickup/scripts/config.json'):
@@ -290,7 +296,7 @@ class GPT4Reasoning:
             pass
 
     def GroundedSAM_json_asPrompt(self, request, image=None, model="gpt-3.5-turbo"):
-        with open(os.path.join("outputs/", request, 'label.json'), 'r') as file:
+        with open(os.path.join(os.path.expanduser("~"), "claw_machine/src/pickup/scripts/cache/boxes.json"), 'r') as file:
             data = json.load(file)
 
         if model in ["gpt-3.5-turbo", "gpt-4"]:
@@ -306,7 +312,7 @@ class GPT4Reasoning:
                     data = json.load(file)
                 self.prompt[0]['content'] = [
                         {"type": "text", "text": 'Given the human request and the candidate objects, ' + \
-                                                'locate the target objects. the output should be a tuple (tensor(n, 4), list(n strings)),' + \
+                                                'locate the target object. the output should be a tuple (tensor(n, 4), list(n strings)),' + \
                                                 'following the style ( [[538, 622, 1082, 1237], [53, 62, 12, 37]], [candidate1 (0.43),  candidate2 (0.3)] ' + \
                                                 f'Human request: {request}. ' + \
                                                 f'JSON data: {data}. '},
@@ -318,13 +324,35 @@ class GPT4Reasoning:
                 raise ValueError("Image input is required for model gpt-4o.")
 
         response = openai.ChatCompletion.create(
-            engine=self.deployment_name,  # Azure uses "engine" instead of "model"
+            model=model,
+            deployment_id="gpt35turbo0125",
             messages=self.prompt, 
             temperature=self.temperature, 
-            max_tokens=self.max_tokens
+            max_tokens=self.max_tokens        
         )
         reply = response.choices[0].message['content']
         return reply
+    
+    def parse_output(self, reply):
+        boxes, objects = eval(reply)
+        # Initialize two empty lists to hold object names and confidence scores
+        object_names = []
+        confidence_scores = []
+        # Iterate over each object in the list
+        for obj in objects:
+            # Split the object string into name and confidence
+            name, confidence = obj.rsplit(' (', 1)
+            # Remove the closing parenthesis and convert the confidence to a float
+            confidence = float(confidence.rstrip(')'))
+            # Append the name and confidence to their respective lists
+            object_names.append(name)
+            confidence_scores.append(confidence)
+        return boxes, object_names, confidence_scores, objects
+    
+    def draw_boxes(image, boxes, labels):
+        det = [boxes, labels]
+        marked_img = draw_candidate_boxes(image, det, None, save=False)
+        return marked_img
 
 def runGroundingDino(image_pil, request):
     output_dir = os.path.join("outputs/" , request)

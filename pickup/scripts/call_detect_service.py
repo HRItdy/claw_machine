@@ -17,11 +17,11 @@ def call_segment_service(x, y):
     response = sam_service(request)
     print('SAM recognition with point is done')
 
-def call_owlgpt_service(prompt):
+def call_owlgpt_service(prompt, enhance):
     rospy.wait_for_service('owl_gpt')
     prompt = ','.join(prompt)
     owl_service = rospy.ServiceProxy('owl_gpt', OwlGpt)
-    request = OwlGptRequest(instruction = prompt)
+    request = OwlGptRequest(instruction = prompt, enhance = enhance)
     response = owl_service(request)
     print('owl recognition with point is done')
 
@@ -31,5 +31,5 @@ if __name__ == '__main__':
 
     # call_segment_service(233, 111)
 
-    prompt = ["a red ball", "a purple ball"]
-    call_owlgpt_service(prompt)
+    prompt = ["a red ball", "a purple ball", "a purple ball between two red balls"]
+    call_owlgpt_service(prompt, True)

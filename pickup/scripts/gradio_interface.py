@@ -32,15 +32,15 @@ def update_detected_window():
         if not image_queue.empty():
             detected_image = image_queue.get_nowait()
 
-            # If a click was registered, draw a red marker on the image
-            if click_x is not None and click_y is not None:
-                detected_image = detected_image.copy()
-                draw = ImageDraw.Draw(detected_image)
-                radius = 5
-                draw.ellipse((click_x - radius, click_y - radius, click_x + radius, click_y + radius), fill='red')
+            # # If a click was registered, draw a red marker on the image
+            # if click_x is not None and click_y is not None:
+            #     detected_image = detected_image.copy()
+            #     draw = ImageDraw.Draw(detected_image)
+            #     radius = 5
+            #     draw.ellipse((click_x - radius, click_y - radius, click_x + radius, click_y + radius), fill='red')
 
-                # Publish the image with the marker
-                publish_image_with_marker(detected_image)
+            #     # Publish the image with the marker
+            #     publish_image_with_marker(detected_image)
 
             # Resize image to 640x480 for Tkinter display
             resized_image = detected_image.resize((640, 480))

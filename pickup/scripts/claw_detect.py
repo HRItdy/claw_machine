@@ -4,7 +4,8 @@
 
 import rospy
 import numpy as np
-from models import runGroundingDino, GroundedDetection, DetPromptedSegmentation, draw_candidate_boxes, OpenOWLDetection
+import torch
+from models import runGroundingDino, GroundedDetection, DetPromptedSegmentation, draw_candidate_boxes, OpenOWLDetection, GPT4Reasoning
 from pickup.srv import GroundingDINO, GroundingDINOResponse, SamPoint, SamPointResponse, OwlGpt, OwlGptResponse
 from geometry_msgs.msg import Point32
 from std_msgs.msg import Header, Bool, Int32MultiArray, MultiArrayDimension
@@ -36,6 +37,8 @@ class ClawDetect:
         self.detector = GroundedDetection(cfg)
         self.segmenter = DetPromptedSegmentation(cfg)
         self.owlvit = OpenOWLDetection()
+        self.gpt = GPT4Reasoning()
+        print("All models are initialized!")
         self.color_image = None
         # Get the instruction input
         self.instruct = instruct
@@ -96,22 +99,44 @@ class ClawDetect:
         return SamPointResponse()
     
     def handle_owl_service(self, req):
+        # req.enhance = False: detect all the balls and visualize them.
+        # req.enhance = True: gpt will detect the only one target, and then trigger SAM to generate mask.
         if self.color_image is None:
             rospy.logwarn("No image received yet.")
             return OwlGptResponse()
         image_pil = Img.fromarray(self.color_image)
         prompt = req.instruction
         prompt = prompt.split(',')
-        output = self.owlvit.inference(image_pil, prompt)
-        json_data = self.owlvit.save_mask_json("/home/lab_cheem/claw_machine/src/pickup/scripts/cache", output, prompt)
-        # mask = self.process_image(image_pil, req.instruction)
-        # masked_img = self.segmenter.get_image(image_pil, mask)
-        # # Convert the processed image to a ROS Image message and publish it
-        # masked_img = np.array(masked_img)
-        # ros_image = self.bridge.cv2_to_imgmsg(masked_img, encoding="rgb8")
-        # self.image_pub.publish(ros_image)
-        print('Image has been processed.')
-        return OwlGptResponse()
+        output = self.owlvit.inference(image_pil, prompt[0:2])
+        boxes, labels, scores = self.owlvit.save_mask_json("/home/lab_cheem/claw_machine/src/pickup/scripts/cache", output, prompt)
+        masked_img = self.owlvit.draw_boxes(image_pil, boxes, labels)
+        # publish the image with all objects marked
+        masked_img = np.array(masked_img)
+        ros_image = self.bridge.cv2_to_imgmsg(masked_img, encoding="rgb8")
+        self.image_pub.publish(ros_image)
+        if not req.enhance:
+            print('Image has been processed.')
+            return OwlGptResponse()
+        else:
+            # enhance with gpt
+            infer = self.gpt.GroundedSAM_json_asPrompt(prompt[-1])
+            boxes, labels, scores, obj_captions = self.gpt.parse_output(infer)
+            # get the most confidiential target
+            box = torch.as_tensor([boxes[0]])
+            obj = [obj_captions[0]]
+            mask = self.segmenter.inference(image_pil, box, obj, None, save_json=False)
+            mask = np.array(mask)
+            mask = np.squeeze(mask)
+            masked_img = self.segmenter.get_image(image_pil, mask)
+            # Convert the processed image to a ROS Image message and publish it
+            masked_img = np.array(masked_img)
+            ros_image = self.bridge.cv2_to_imgmsg(masked_img, encoding="rgb8")
+            self.image_pub.publish(ros_image)
+            bottom = self.find_bottom_point(mask)
+            rospy.set_param('/pc_transform/image_mask', mask.tolist())
+            rospy.set_param('/pc_transform/bottom', bottom.tolist())
+            print('Image has been processed.')
+            return OwlGptResponse()
 
     def process_image(self, image, user_request):
         if image is None:
