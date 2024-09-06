@@ -32,6 +32,7 @@ Monday:
   
 - Enhance the groundingdino with GPT-4.
 - Enhance the real-time owl with GPT-4.
+- Merge the services into one file.
 - Now the detection is only executed once. If want to track the object, can use XMEM or recent SAM-v2.
 - Use the graspposMap to do the grasp.
 
