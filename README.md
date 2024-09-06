@@ -27,13 +27,14 @@ Monday:
 - ~~Install nanosam~~
 - &#10004; Write the gradio app, complish the reassignment of object
 - Test with multiple balls
+- Use FastSAM
 - Overlap retest (convert the whole rgb image into pointcloud, and select several points, decide the correspondence between rgb image and pointcloud)
 - Add real-time interaction, service launch and redetect into the gradio app.
   
 - ~~Enhance the groundingdino with GPT-4.~~
 - &#10004; Enhance the real-time owl with GPT-4.
 - Merge the services into one file.
-- Now the detection is only executed once. If want to track the object, can use XMEM or recent SAM-v2.
+- ~~Now the detection is only executed once. If want to track the object, can use XMEM or recent SAM-v2.(Resource required)~~
 - Use the graspposMap to do the grasp.
 
 
