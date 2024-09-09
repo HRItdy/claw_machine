@@ -28,7 +28,10 @@ Monday:
 - ~~Install nanosam~~
 - &#10004; Write the gradio app, complish the reassignment of object
 - Test with multiple balls
-- Use FastSAM
+- Use FastSAM,
+  - GroundingDINO+FastSAM
+  - OwlVit+FastSAM
+  - FastSAM with point
 - Overlap retest (convert the whole rgb image into pointcloud, and select several points, decide the correspondence between rgb image and pointcloud)
 - Add real-time interaction, service launch and redetect into the gradio app.
   
