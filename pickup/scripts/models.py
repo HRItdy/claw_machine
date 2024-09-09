@@ -24,6 +24,7 @@ from GroundingDINO.groundingdino.util.slconfig import SLConfig
 from GroundingDINO.groundingdino.util.utils import clean_state_dict, get_phrases_from_posmap
 from segment_anything import build_sam, SamPredictor 
 from nanoowl.owl_predictor import OwlPredictor
+from FastSAM.fastsam import FastSAM, FastSAMPrompt
 
 def draw_candidate_boxes(image, det_list, output_dir, stepstr= 'targets', save=False):
     #assert stepstr in ['candidates', 'self', 'related', 'ref'], "stepstr must be one of ['self', 'related', 'ref']"
@@ -201,6 +202,53 @@ class DetPromptedSegmentation:
         # if save_json == True:
         #     DetPromptedSegmentation.save_mask_json(save_dir, masks, prompt_boxes, pred_phrases)
         return masks
+    
+    def get_image(self, image_pil, mask, mask_color=(0, 0, 255), alpha=0.5, save=False):
+        # Convert the PIL image to a NumPy array
+        image_np = np.array(image_pil)
+        # Convert the mask to a binary mask and overlay it
+        colored_mask = np.zeros_like(image_np, dtype=np.uint8)
+        # Create a colored mask (blue color)
+        colored_mask[mask > 0] = mask_color  # Blue color (0, 0, 255)
+        # Overlay the colored mask on the image with transparency
+        image_np = np.where(mask[..., None] > 0, 
+                            (image_np * (1 - alpha) + colored_mask * alpha).astype(np.uint8), 
+                            image_np)
+        # Convert the result back to a PIL image
+        masked_img = Image.fromarray(image_np)
+        if save:
+            masked_img.save(os.path.join(os.path.expanduser("~"), 'claw_machine/src/pickup/scripts/cache/view.png'))
+        return masked_img
+    
+class FastSAMSegment:
+    def __init__(self, model_pth = '/home/lab_cheem/claw_machine/src/pickup/scripts/FastSAM/weights/FastSAM.pt'):
+        self.model = FastSAM(model_pth)
+        self.device = 'cuda:0'
+
+    def predict_prompt(self, image, prompt):
+        predict_result = self.model.predict(image, device=self.device, retina_masks=True, imgsz=1024, conf=0.4, iou=0.9,)
+        prompt_process = FastSAMPrompt(image, predict_result, device=self.device)
+        # text prompt
+        ann = prompt_process.text_prompt(text=prompt)
+        return ann
+
+    def predict_box(self, image, boxes):
+        predict_result = self.model.predict(image, device=self.device, retina_masks=True, imgsz=1024, conf=0.4, iou=0.9,)
+        prompt_process = FastSAMPrompt(image, predict_result, device=self.device)
+        # bbox default shape [0,0,0,0] -> [x1,y1,x2,y2]
+        # ann = prompt_process.box_prompt(bboxes=[[200, 200, 300, 300]])
+        ann = prompt_process.box_prompt(bboxes=boxes)
+        return ann
+
+    def predict_point(self, image, points, pointlabel):
+        predict_result = self.model.predict(image, device=self.device, retina_masks=True, imgsz=1024, conf=0.4, iou=0.9,)
+        prompt_process = FastSAMPrompt(image, predict_result, device=self.device)
+        # point prompt
+        # points default [[0,0]] [[x1,y1],[x2,y2]]
+        # point_label default [0] [1,0] 0:background, 1:foreground
+        # ann = prompt_process.point_prompt(points=[[620, 360]], pointlabel=[1])
+        ann = prompt_process.point_prompt(points=points, pointlabel=pointlabel)
+        return ann
     
     def get_image(self, image_pil, mask, mask_color=(0, 0, 255), alpha=0.5, save=False):
         # Convert the PIL image to a NumPy array

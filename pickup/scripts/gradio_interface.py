@@ -162,8 +162,8 @@ detected_window_label = tk.Label(image_frame, bg="gray")
 detected_window_label.pack(side=tk.LEFT, padx=10, pady=10)
 
 # Fix the window size for both labels to 640x480
-camera_label.config(width=640, height=480)
-detected_window_label.config(width=640, height=480)
+camera_label.config(width=576, height=432)
+detected_window_label.config(width=576, height=432)
 
 # Create a chat text box to show robot's messages
 chat_label = tk.Label(root, text="Chat from Robot:")

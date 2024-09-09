@@ -5,7 +5,7 @@
 import rospy
 import numpy as np
 import torch
-from models import runGroundingDino, GroundedDetection, DetPromptedSegmentation, draw_candidate_boxes, OpenOWLDetection, GPT4Reasoning
+from models import runGroundingDino, GroundedDetection, DetPromptedSegmentation, draw_candidate_boxes, OpenOWLDetection, GPT4Reasoning, FastSAMSegment
 from pickup.srv import GroundingDINO, GroundingDINOResponse, SamPoint, SamPointResponse, OwlGpt, OwlGptResponse
 from geometry_msgs.msg import Point32
 from std_msgs.msg import Header, Bool, Int32MultiArray, MultiArrayDimension
@@ -38,6 +38,7 @@ class ClawDetect:
         self.segmenter = DetPromptedSegmentation(cfg)
         self.owlvit = OpenOWLDetection()
         self.gpt = GPT4Reasoning()
+        self.fastsam = FastSAMSegment()
         print("All models are initialized!")
         self.color_image = None
         # Get the instruction input
@@ -67,7 +68,7 @@ class ClawDetect:
         else:
             pass 
         
-    def handle_gr_service(self, req):
+    def handle_gr_service(self, req, use_fast = True):
         if self.color_image is None:
             rospy.logwarn("No image received yet.")
             return GroundingDINOResponse(cX=-1, cY=-1)
@@ -81,16 +82,21 @@ class ClawDetect:
         print('Image has been processed.')
         return GroundingDINOResponse(cX=self.cX, cY=self.cY)
     
-    def handle_sam_service(self, req):
+    def handle_sam_service(self, req, use_fast = True):
         if self.color_image is None:
             rospy.logwarn("No image received yet.")
             return SamPointResponse()
         image_pil = Img.fromarray(self.color_image)
         point_coord = np.array([[req.cX, req.cY]])
         point_label = np.array([1])
-        mask = self.segmenter.inference_point(image_pil, point_coord, point_label)
-        mask = np.squeeze(mask)
-        masked_img = self.segmenter.get_image(image_pil, mask)
+        if use_fast:
+            ann = self.fastsam.predict_point(image_pil, point_coord, point_label)
+            mask = np.squeeze(ann.numpy())
+            masked_img = self.fastsam.get_image(image_pil, mask)
+        else:
+            mask = self.segmenter.inference_point(image_pil, point_coord, point_label)
+            mask = np.squeeze(mask)
+            masked_img = self.segmenter.get_image(image_pil, mask)
         # Convert the processed image to a ROS Image message and publish it
         masked_img = np.array(masked_img)
         ros_image = self.bridge.cv2_to_imgmsg(masked_img, encoding="rgb8")
@@ -98,7 +104,7 @@ class ClawDetect:
         print('Image has been processed.')
         return SamPointResponse()
     
-    def handle_owl_service(self, req):
+    def handle_owl_service(self, req, use_fast = True):
         # req.enhance = False: detect all the balls and visualize them.
         # req.enhance = True: gpt will detect the only one target, and then trigger SAM to generate mask.
         if self.color_image is None:
@@ -124,10 +130,15 @@ class ClawDetect:
             # get the most confidiential target
             box = torch.as_tensor([boxes[0]])
             obj = [obj_captions[0]]
-            mask = self.segmenter.inference(image_pil, box, obj, None, save_json=False)
-            mask = np.array(mask)
-            mask = np.squeeze(mask)
-            masked_img = self.segmenter.get_image(image_pil, mask)
+            if use_fast:
+                ann = self.fastsam.predict_prompt(image_pil, box, obj)
+                mask = np.squeeze(ann.numpy())
+                masked_img = self.fastsam.get_image(image_pil, mask)
+            else:
+                mask = self.segmenter.inference(image_pil, box, obj, None, save_json=False)
+                mask = np.array(mask)
+                mask = np.squeeze(mask)
+                masked_img = self.segmenter.get_image(image_pil, mask)
             # Convert the processed image to a ROS Image message and publish it
             masked_img = np.array(masked_img)
             ros_image = self.bridge.cv2_to_imgmsg(masked_img, encoding="rgb8")
