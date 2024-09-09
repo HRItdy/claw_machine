@@ -17,7 +17,8 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 
 **Features:** 
 1. The **GroundingDINO** and **Segment-Anything** are integrated to detect the object.
-2. The functions are wrapped as individual services. 
+2. Add **nanoowl** and **FastSAM** to reduce time consumption.
+3. The functions are wrapped as individual services. 
 
 **TODO:**
 
