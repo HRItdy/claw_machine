@@ -1,3 +1,4 @@
 string instruction
 bool enhance
+bool fast_sam
 ---

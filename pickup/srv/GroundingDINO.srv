@@ -1,4 +1,5 @@
 string instruction
+bool fast_sam
 ---
 int32 cX
 int32 cY
