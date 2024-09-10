@@ -1,1 +1,1 @@
-{"caption": "Ball detection results", "boxes": [{"label": "a red ball", "score": 0.1742849498987198, "box": [503, 253, 591, 332]}, {"label": "a red ball", "score": 0.19405977427959442, "box": [163, 271, 242, 354]}, {"label": "a purple ball", "score": 0.23591072857379913, "box": [361, 389, 441, 471]}, {"label": "a purple ball", "score": 0.17338725924491882, "box": [527, 402, 611, 482]}]}
+{"caption": "Ball detection results", "boxes": []}

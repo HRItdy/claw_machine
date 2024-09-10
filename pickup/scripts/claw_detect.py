@@ -68,12 +68,12 @@ class ClawDetect:
         else:
             pass 
         
-    def handle_gr_service(self, req, use_fast = True):
+    def handle_gr_service(self, req):
         if self.color_image is None:
             rospy.logwarn("No image received yet.")
             return GroundingDINOResponse(cX=-1, cY=-1)
         image_pil = Img.fromarray(self.color_image)
-        mask = self.process_image(image_pil, req.instruction)
+        mask = self.process_image(image_pil, req)
         masked_img = self.segmenter.get_image(image_pil, mask)
         # Convert the processed image to a ROS Image message and publish it
         masked_img = np.array(masked_img)
@@ -82,16 +82,16 @@ class ClawDetect:
         print('Image has been processed.')
         return GroundingDINOResponse(cX=self.cX, cY=self.cY)
     
-    def handle_sam_service(self, req, use_fast = True):
+    def handle_sam_service(self, req):
         if self.color_image is None:
             rospy.logwarn("No image received yet.")
             return SamPointResponse()
         image_pil = Img.fromarray(self.color_image)
         point_coord = np.array([[req.cX, req.cY]])
         point_label = np.array([1])
-        if use_fast:
+        if req.fast_sam:
             ann = self.fastsam.predict_point(image_pil, point_coord, point_label)
-            mask = np.squeeze(ann.numpy())
+            mask = np.squeeze(ann)
             masked_img = self.fastsam.get_image(image_pil, mask)
         else:
             mask = self.segmenter.inference_point(image_pil, point_coord, point_label)
@@ -104,7 +104,7 @@ class ClawDetect:
         print('Image has been processed.')
         return SamPointResponse()
     
-    def handle_owl_service(self, req, use_fast = True):
+    def handle_owl_service(self, req):
         # req.enhance = False: detect all the balls and visualize them.
         # req.enhance = True: gpt will detect the only one target, and then trigger SAM to generate mask.
         if self.color_image is None:
@@ -128,11 +128,12 @@ class ClawDetect:
             infer = self.gpt.GroundedSAM_json_asPrompt(prompt[-1])
             boxes, labels, scores, obj_captions = self.gpt.parse_output(infer)
             # get the most confidiential target
-            box = torch.as_tensor([boxes[0]])
+            # box = torch.as_tensor([boxes[0]])
+            box = [boxes[0]]
             obj = [obj_captions[0]]
-            if use_fast:
-                ann = self.fastsam.predict_prompt(image_pil, box, obj)
-                mask = np.squeeze(ann.numpy())
+            if req.fast_sam:
+                ann = self.fastsam.predict_box(image_pil, box)
+                mask = np.squeeze(ann)
                 masked_img = self.fastsam.get_image(image_pil, mask)
             else:
                 mask = self.segmenter.inference(image_pil, box, obj, None, save_json=False)
@@ -149,10 +150,13 @@ class ClawDetect:
             print('Image has been processed.')
             return OwlGptResponse()
 
-    def process_image(self, image, user_request):
+    def process_image(self, image, request):
         if image is None:
             rospy.logwarn("No image received yet.")
             return
+        # Extract request info
+        user_request = request.instruction
+        fast_sam = request.fast_sam
         # Use GroundingDINO to find the ball
         output_dir = os.path.join("outputs/", user_request)
         os.makedirs(output_dir, exist_ok=True)
@@ -162,7 +166,10 @@ class ClawDetect:
         results_.append(results[0][0].unsqueeze(0))
         results_.append([results[1][0]])
         sin_pil = draw_candidate_boxes(image, results_, output_dir, stepstr='sing', save=False)
-        mask = self.segmenter.inference(image, results_[0], results_[1], output_dir, save_json=True)
+        if fast_sam:
+            mask = self.fastsam.predict_prompt(image, user_request)
+        else:
+            mask = self.segmenter.inference(image, results_[0], results_[1], output_dir, save_json=True)
         # Save the original image
         original_image_path = os.path.join(output_dir, "original_image.png")
         image.save(original_image_path)

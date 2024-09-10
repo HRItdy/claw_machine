@@ -24,6 +24,9 @@ from GroundingDINO.groundingdino.util.slconfig import SLConfig
 from GroundingDINO.groundingdino.util.utils import clean_state_dict, get_phrases_from_posmap
 from segment_anything import build_sam, SamPredictor 
 from nanoowl.owl_predictor import OwlPredictor
+# import FastSAM to use blended ultralytics
+import sys
+sys.path.append('/home/lab_cheem/claw_machine/src/pickup/scripts/FastSAM')
 from FastSAM.fastsam import FastSAM, FastSAMPrompt
 
 def draw_candidate_boxes(image, det_list, output_dir, stepstr= 'targets', save=False):
