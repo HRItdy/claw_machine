@@ -30,8 +30,8 @@ Monday:
 - Test with multiple balls
 - Use FastSAM,
   - GroundingDINO+FastSAM
-  - OwlVit+FastSAM
-  - FastSAM with point
+  - &#10004; OwlVit+FastSAM
+  - &#10004; FastSAM with point
 - Overlap retest (convert the whole rgb image into pointcloud, and select several points, decide the correspondence between rgb image and pointcloud)
 - Add real-time interaction, service launch and redetect into the gradio app.
   
