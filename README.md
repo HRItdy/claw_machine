@@ -25,9 +25,11 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 - &#10004; Test the nanowrl with ["red balls", "purple balls"]
 - ~~Install nanosam~~
 - &#10004; Write the gradio app, complish the reassignment of object
-- Test with multiple balls
+- &#10004; Test with multiple balls
+  - &#10004; GroundingDINO+FastSAM could find the ball and segment it quickly.
+  - &#10004; OWL-ViT could not detect balls when there are lots of balls.
 - Use FastSAM,
-  - GroundingDINO+FastSAM
+  - &#10004; GroundingDINO+FastSAM
   - &#10004; OwlVit+FastSAM
   - &#10004; FastSAM with point
 - Overlap retest (convert the whole rgb image into pointcloud, and select several points, decide the correspondence between rgb image and pointcloud)
