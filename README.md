@@ -21,8 +21,6 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 3. The functions are wrapped as individual services. 
 
 **TODO:**
-
-Monday:
 - &#10004; Test the cuda-version groundingDINO and SAM
 - &#10004; Test the nanowrl with ["red balls", "purple balls"]
 - ~~Install nanosam~~
