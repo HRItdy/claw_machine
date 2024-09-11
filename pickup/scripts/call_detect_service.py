@@ -28,10 +28,10 @@ def call_owlgpt_service(input, enhance, fast_sam=True):
     print('owl recognition with point is done')
 
 if __name__ == '__main__':
-    x, y = call_detect_service()
+    # x, y = call_detect_service()
     # print('detection done')
 
     # call_segment_service(233, 111)
 
-    # input = "a purple ball between two red balls"
-    # call_owlgpt_service(input, True, True)
+    input = "a purple ball between two red balls"
+    call_owlgpt_service(input, True, True)

@@ -24,6 +24,7 @@ from GroundingDINO.groundingdino.util.slconfig import SLConfig
 from GroundingDINO.groundingdino.util.utils import clean_state_dict, get_phrases_from_posmap
 from segment_anything import build_sam, SamPredictor 
 from nanoowl.owl_predictor import OwlPredictor
+import azure.cognitiveservices.speech as speechsdk
 # import FastSAM to use blended ultralytics
 import sys
 sys.path.append('/home/lab_cheem/claw_machine/src/pickup/scripts/FastSAM')
@@ -404,6 +405,49 @@ class GPT4Reasoning:
         det = [boxes, labels]
         marked_img = draw_candidate_boxes(image, det, None, save=False)
         return marked_img
+    
+class SpeechTextTrans:
+    def __init__(self, config = '/home/lab_cheem/claw_machine/src/pickup/scripts/config.json'):
+        # Azure OpenAI Service specific configurations
+        with open(config, "r") as f:
+            config = json.load(f)
+        # Azure Speech Configuration
+        speech_key = config["AZURE_SPEECH_API_KEY"]
+        speech_region = config["AZURE_SPEECH_REGION"]
+        # Initialize the Speech SDK for speech-to-text and text-to-speech
+        speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=speech_region)
+        audio_config = speechsdk.AudioConfig(use_default_microphone=True)
+        self.speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_config)
+        self.speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_config)
+
+    def speech_to_text(self):
+        print("Speak into your microphone.")
+        result = self.speech_recognizer.recognize_once()
+        # Check the result
+        if result.reason == speechsdk.ResultReason.RecognizedSpeech:
+            print(f"Recognized: {result.text}")
+            return result.text
+        elif result.reason == speechsdk.ResultReason.NoMatch:
+            print("No speech could be recognized")
+        elif result.reason == speechsdk.ResultReason.Canceled:
+            cancellation_details = result.cancellation_details
+            print(f"Speech Recognition canceled: {cancellation_details.reason}")
+            if cancellation_details.reason == speechsdk.CancellationReason.Error:
+                print(f"Error details: {cancellation_details.error_details}")
+        return ""
+
+    def text_to_speech(self, text):
+        # Synthesize spoken output
+        result = self.speech_synthesizer.speak_text_async(text).get()
+        # Check result
+        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+            print("Speech synthesized.")
+        elif result.reason == speechsdk.ResultReason.Canceled:
+            cancellation_details = result.cancellation_details
+            print(f"Speech synthesis canceled: {cancellation_details.reason}")
+            if cancellation_details.reason == speechsdk.CancellationReason.Error:
+                print(f"Error details: {cancellation_details.error_details}")
+        
 
 def runGroundingDino(image_pil, request):
     output_dir = os.path.join("outputs/" , request)

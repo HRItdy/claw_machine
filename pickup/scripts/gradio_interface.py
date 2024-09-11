@@ -4,12 +4,15 @@ import tkinter as tk
 from sensor_msgs.msg import Image
 from PIL import Image as PILImage, ImageTk, ImageDraw
 from call_detect_service import call_segment_service
+from models import SpeechTextTrans
 
 # Global variables
 latest_image = None  # For camera feed
 image_queue = queue.Queue()  # Thread-safe queue for detected images
 clickable_buttons = False  # For enabling/disabling buttons
 click_x, click_y = None, None  # Coordinates for the point marker
+transcriber = SpeechTextTrans() # Speech and text transcriber
+click_ball = False # Flag to only output synthesized speech once. Without this the machine will speak several times after multiple click events.
 
 # Publisher for the modified image with the marker
 marker_image_pub = rospy.Publisher('/masked_image_with_marker', Image, queue_size=1)
@@ -69,10 +72,14 @@ def image_callback(ros_image):
 
 # Callback for masked image topic (runs in ROS thread)
 def masked_image_callback(ros_image):
+    global click_ball
     detected_image = convert_ros_image_to_pil(ros_image)
     if detected_image:
         # Add the image to the queue for the main thread to handle
         image_queue.put(detected_image)
+        if not click_ball:
+            transcriber.text_to_speech('Is this the ball you want?')
+            click_ball = True
 
 # Helper function to convert ROS Image to PIL Image
 def convert_ros_image_to_pil(ros_image):
@@ -127,16 +134,30 @@ def publish_image_with_marker(pil_image):
 # Function for "Yes" button click
 def on_yes_click():
     print("Yes button clicked!")
-    call_gpt()  # Placeholder for the GPT function
+    transcriber.text_to_speech("You have confirmed the selected ball, will proceed to grasp it.")
+    # pass the command to gpt
 
 # Function for "No" button click
 def on_no_click():
+    global click_ball
     print("No button clicked!")
+    transcriber.text_to_speech("Please restate the prompt or click on the ball you want.")
     detected_window_label.bind("<Button-1>", get_click)  # Bind click event to the detected window
+    click_ball = False  # Reset the flag to allow selecting a new ball
 
 # Placeholder function for GPT processing
 def call_gpt():
     print("Processing with GPT...")
+
+# Function for speech-to-text transcription
+def on_speech_button_click():
+    text = transcriber.speech_to_text()
+    print(f"Speech prompt: {text}")
+    # Display the transcribed text in the speech output text box
+    speech_output_text.config(state=tk.NORMAL)
+    speech_output_text.delete(1.0, tk.END)  # Clear previous text
+    speech_output_text.insert(tk.END, text)  # Insert the transcribed text
+    speech_output_text.config(state=tk.DISABLED)  # Make it read-only
 
 # Initialize ROS node
 rospy.init_node('camera_gui', anonymous=True)
@@ -176,6 +197,18 @@ yes_button = tk.Button(root, text="Yes", command=on_yes_click, state=tk.DISABLED
 no_button = tk.Button(root, text="No", command=on_no_click, state=tk.DISABLED)
 yes_button.pack(side=tk.LEFT, padx=10, pady=10)
 no_button.pack(side=tk.LEFT, padx=10, pady=10)
+
+# Create a frame for displaying the transcribed speech
+speech_output_label = tk.Label(root, text="Transcribed Speech:")
+speech_output_label.pack()
+
+# Create a text box to show the transcribed speech from the 'Speak' button
+speech_output_text = tk.Text(root, height=2, width=50, state=tk.DISABLED)
+speech_output_text.pack(padx=10, pady=10)
+
+# Existing 'Speak' button to trigger transcription
+speech_button = tk.Button(root, text="Speak", command=on_speech_button_click)
+speech_button.pack(side=tk.LEFT, padx=10, pady=10)
 
 # Start the Tkinter image update loop
 root.after(10, update_image)

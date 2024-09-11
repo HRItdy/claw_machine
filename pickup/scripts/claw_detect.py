@@ -117,9 +117,9 @@ class ClawDetect:
         boxes, labels, scores = self.owlvit.save_mask_json("/home/lab_cheem/claw_machine/src/pickup/scripts/cache", output, prompt)
         masked_img = self.owlvit.draw_boxes(image_pil, boxes, labels)
         # publish the image with all objects marked
-        masked_img = np.array(masked_img)
-        ros_image = self.bridge.cv2_to_imgmsg(masked_img, encoding="rgb8")
-        self.image_pub.publish(ros_image)
+        # masked_img = np.array(masked_img)
+        # ros_image = self.bridge.cv2_to_imgmsg(masked_img, encoding="rgb8")
+        # self.image_pub.publish(ros_image)
         if not req.enhance:
             print('Image has been processed.')
             return OwlGptResponse()
