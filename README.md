@@ -34,6 +34,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
   - &#10004; FastSAM with point
 - Overlap retest (convert the whole rgb image into pointcloud, and select several points, decide the correspondence between rgb image and pointcloud)
 - &#10004; Add real-time interaction, service launch and redetect into the gradio app.
+- &#10004; Add Azure speech service.
   
 - ~~Enhance the groundingdino with GPT-4.~~
 - &#10004; Enhance the real-time owl with GPT-4.
