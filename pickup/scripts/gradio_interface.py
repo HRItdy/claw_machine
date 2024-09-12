@@ -2,6 +2,7 @@ import rospy
 import queue
 import tkinter as tk
 from sensor_msgs.msg import Image
+from std_msgs.msg import String
 from PIL import Image as PILImage, ImageTk, ImageDraw
 from call_detect_service import call_segment_service
 from models import SpeechTextTrans
@@ -13,9 +14,6 @@ clickable_buttons = False  # For enabling/disabling buttons
 click_x, click_y = None, None  # Coordinates for the point marker
 transcriber = SpeechTextTrans() # Speech and text transcriber
 click_ball = False # Flag to only output synthesized speech once. Without this the machine will speak several times after multiple click events.
-
-# Publisher for the modified image with the marker
-marker_image_pub = rospy.Publisher('/masked_image_with_marker', Image, queue_size=1)
 
 # Function to safely update the camera image in Tkinter
 def update_image():
@@ -69,6 +67,18 @@ def update_detected_window():
 def image_callback(ros_image):
     global latest_image
     latest_image = convert_ros_image_to_pil(ros_image)
+
+# Function to update chat_text safely from the main thread
+def update_chat_text(response_data):
+    chat_text.config(state=tk.NORMAL)  # Enable editing
+    chat_text.delete(1.0, tk.END)  # Clear previous text
+    chat_text.insert(tk.END, f"Robot: {response_data}")  # Show the robot's response
+    chat_text.config(state=tk.DISABLED)  # Disable editing again
+
+# Callback function to handle messages from the '/chat_response' topic
+def response_callback(response):
+    # Use after() to ensure this runs in the Tkinter main thread
+    root.after(0, update_chat_text, response.data)
 
 # Callback for masked image topic (runs in ROS thread)
 def masked_image_callback(ros_image):
@@ -134,8 +144,9 @@ def publish_image_with_marker(pil_image):
 # Function for "Yes" button click
 def on_yes_click():
     print("Yes button clicked!")
-    transcriber.text_to_speech("You have confirmed the selected ball, will proceed to grasp it.")
-    # pass the command to gpt
+    pro = "You have confirmed the selected ball, will proceed to grasp it."
+    transcriber.text_to_speech(pro)
+    speech_pub.publish(pro)
 
 # Function for "No" button click
 def on_no_click():
@@ -144,10 +155,6 @@ def on_no_click():
     transcriber.text_to_speech("Please restate the prompt or click on the ball you want.")
     detected_window_label.bind("<Button-1>", get_click)  # Bind click event to the detected window
     click_ball = False  # Reset the flag to allow selecting a new ball
-
-# Placeholder function for GPT processing
-def call_gpt():
-    print("Processing with GPT...")
 
 # Function for speech-to-text transcription
 def on_speech_button_click():
@@ -158,6 +165,7 @@ def on_speech_button_click():
     speech_output_text.delete(1.0, tk.END)  # Clear previous text
     speech_output_text.insert(tk.END, text)  # Insert the transcribed text
     speech_output_text.config(state=tk.DISABLED)  # Make it read-only
+    speech_pub.publish(text)
 
 # Initialize ROS node
 rospy.init_node('camera_gui', anonymous=True)
@@ -165,6 +173,10 @@ rospy.init_node('camera_gui', anonymous=True)
 # Subscribe to camera topic and masked image topic
 rospy.Subscriber('/realsense_wrist/color/image_raw', Image, image_callback)
 rospy.Subscriber('/masked_image', Image, masked_image_callback)
+# Publisher for the modified image with the marker
+marker_image_pub = rospy.Publisher('/masked_image_with_marker', Image, queue_size=1)
+speech_pub = rospy.Publisher('/usr_input', String, queue_size=1)
+response_sub = rospy.Subscriber('/chat_response', String, response_callback)
 
 # Create the main Tkinter window
 root = tk.Tk()

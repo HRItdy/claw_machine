@@ -2,10 +2,10 @@
 import rospy
 from pickup.srv import GroundingDINO, GroundingDINORequest, SamPoint, SamPointRequest, OwlGpt, OwlGptRequest
 
-def call_detect_service():
+def call_detect_service(instruction):
     rospy.wait_for_service('grounding_dino')
     grounding_dino = rospy.ServiceProxy('grounding_dino', GroundingDINO)
-    request = GroundingDINORequest(instruction='pick up the left red ball', fast_sam=True)
+    request = GroundingDINORequest(instruction=instruction, fast_sam=True)
     response = grounding_dino(request)
     print(f"Received coordinates: cX={response.cX}, cY={response.cY}")
     return response.cX, response.cY
@@ -28,7 +28,7 @@ def call_owlgpt_service(input, enhance, fast_sam=True):
     print('owl recognition with point is done')
 
 if __name__ == '__main__':
-    # x, y = call_detect_service()
+    # x, y = call_detect_service('pick up the left most red ball')
     # print('detection done')
 
     # call_segment_service(233, 111)
