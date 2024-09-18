@@ -67,6 +67,9 @@ source setup.bash
 roslaunch lab_launch sys_lux.launch
 ```
 
+
+If dismounted the robot arm from the mobile base,
+
 ### RUN ALL SCRIPTS WITH ONE COMMAND 
 **Terminal 2:**
 ```python
