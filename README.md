@@ -72,6 +72,14 @@ If dismounted the robot arm from the mobile base, need to run another launch fil
 
 In the sys_lux.launch, the arm is mounted on the mobile base, so the urdf of the mobile base LD50.....urdf is required.
 
+If dismount the robot arm, we don't need to care about the base, the original point should be at the base of the arm. We can directly load the urdf file of the robot arm.
+
+```python
+cd ~/catkin_ws
+source setup.bash
+roslaunch lab_launch sys_oja.launch
+```
+
 ### RUN ALL SCRIPTS WITH ONE COMMAND 
 **Terminal 2:**
 ```python
