@@ -68,7 +68,7 @@ roslaunch lab_launch sys_lux.launch
 ```
 
 
-If dismounted the robot arm from the mobile base,
+If dismounted the robot arm from the mobile base, need to run another launch file, because the original point is changed.
 
 ### RUN ALL SCRIPTS WITH ONE COMMAND 
 **Terminal 2:**
