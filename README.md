@@ -70,6 +70,8 @@ roslaunch lab_launch sys_lux.launch
 
 If dismounted the robot arm from the mobile base, need to run another launch file, because the original point is changed.
 
+In the sys_lux.launch, the arm is mounted on the mobile base, so the urdf of the mobile base LD50.....urdf is required.
+
 ### RUN ALL SCRIPTS WITH ONE COMMAND 
 **Terminal 2:**
 ```python
