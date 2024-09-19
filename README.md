@@ -43,6 +43,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 - Calibrate the camera.
 - ~~Now the detection is only executed once. If want to track the object, can use XMEM or recent SAM-v2.(Resource required)~~
 - Use the graspposMap to do the grasp.
+- Now have figured out (in claw_depth_backup.py): use `depth_to_point_cloud` function or `color_to_point_cloud` function is converting the depth_image into `realsense_wrist_depth_optical_frame` frame.
 
 
 ## Sturcture:
