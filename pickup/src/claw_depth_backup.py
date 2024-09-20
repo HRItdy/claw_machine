@@ -18,19 +18,26 @@ import pyrealsense2 as rs2
 from scipy.spatial.transform import Rotation as R
 import open3d as o3d
 from store_mask_service import store_mask_client
-
+from sensor_msgs import point_cloud2
+import tf2_ros
+import tf.transformations 
+from cv_bridge import CvBridge
 
 class ClawDepth:
     def __init__(self):
         rospy.init_node('claw_depth', anonymous=True)
+        self.bridge = CvBridge()
         self.color_image = None
         self.depth_image = None
+        self.tf_buffer = tf2_ros.Buffer()
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         self.depth_sub = Subscriber('/realsense_wrist/depth/image_rect_raw', Image)  #TODO: project the 2D to 3D pointcloud, publish it and campare with the origin
         self.color_sub = Subscriber('/realsense_wrist/color/image_raw', Image)
         self.depth_info_sub = Subscriber('/realsense_wrist/depth/camera_info', CameraInfo)
         self.color_info_sub = Subscriber('/realsense_wrist/color/camera_info', CameraInfo)
-        self.pc_pub_depth = rospy.Publisher('/depth_point_cloud', PointCloud, queue_size=1)
+        self.pc_pub_depth = rospy.Publisher('/depth_point_cloud', PointCloud2, queue_size=1)
         self.pc_pub_color = rospy.Publisher('/color_point_cloud', PointCloud, queue_size=1)
+        self.image_pub = rospy.Publisher('image_with_points', Image, queue_size=1)
 
         # Synchronize the topics
         self.ats = ApproximateTimeSynchronizer([self.depth_sub, self.color_sub, self.depth_info_sub, self.color_info_sub], queue_size=5, slop=0.1)
@@ -52,19 +59,116 @@ class ClawDepth:
             rospy.logwarn("Empty images received.")
             return
         
-        #TODO: put these into one service script
-        # If use self.depth_instrinsics in self.color_to_point_cloud, then don't need to calculate the trans_matrix. These two pointcloud should match accurately.
-        # If use self.color_instrinsics in self.color_to_point_cloud, then need to calculate the trans_matrix.
+        # If use self.color_instrinsics in self.color_to_point_cloud, the pointcloud will be zoomed campared with the pointcloud using depth_intrinsic
         # First get the point cloud from depth frame: target point cloud
         target_cloud = self.depth_to_point_cloud(self.depth_image, self.depth_intrinsics)
-        self.cluster_pub(target_cloud, self.pc_pub_depth)
-        # Then get the point cloud from color frame: source point cloud
-        source_cloud = self.color_to_point_cloud(self.depth_image, self.depth_intrinsics, indices=None, color_image=self.color_image)
-        self.cluster_pub(source_cloud, self.pc_pub_color)
-        # Finally calculate the transformation matrix between this two point cloud
-        self.trans_matrix = self.align_pointclouds(source_cloud, target_cloud)
-        # Transform the source cloud to target cloud and check if necessary
+        # Transform the generated pointcloud under 'realsnse_wrist_depth_optical_frame' to 'realsense_wrist_link' frame
+        converted_cloud = self.transform_point_cloud(target_cloud, source_frame='realsense_wrist_depth_optical_frame', target_frame='realsense_wrist_link')
+        # 3D coordinates you want to project back to 2D image.
+        points_3d = np.array([[0.5887, 0.1332, -0.0715],
+                              [0.5839, -0.1712, -0.0875],
+                              [0.5284, -0.1678, 0.1503]])
+        # Now under realsense_wrist_link frame, convert to realsense_wrist_depth_optical_frame
+        converted_point_3d = self.transform_point_cloud(points_3d, source_frame='realsense_wrist_link', target_frame='realsense_wrist_depth_optical_frame')
+        points_2d = self.project_3d_to_2d(converted_point_3d, self.depth_intrinsics)
+        print(points_2d)
+        pil_image = Img.fromarray(self.color_image)
+        pil_image = self.draw_points_on_image(pil_image, points_2d)
+        self.publish_image(pil_image)
 
+    def project_3d_to_2d(self, points_3d, intrinsics):
+        """
+        Projects 3D points into 2D image coordinates.
+        """
+        x = points_3d[:, 0]
+        y = points_3d[:, 1]
+        z = points_3d[:, 2] / 0.001
+
+        fx, fy = intrinsics.fx, intrinsics.fy
+        cx, cy = intrinsics.ppx, intrinsics.ppy
+
+        u = (x * fx / z) + cx
+        v = (y * fy / z) + cy
+
+        points_2d = np.vstack((u, v)).T
+        return points_2d
+
+    def draw_points_on_image(self, pil_img, points_2d):
+        """
+        Draws circles on the image at the projected 2D points.
+        """
+        draw = ImageDraw.Draw(pil_img)
+        for point in points_2d:
+            u, v = int(point[0]), int(point[1])
+            radius = 5
+            draw.ellipse((u - radius, v - radius, u + radius, v + radius), outline="green", width=2)
+        return pil_img
+
+    def publish_image(self, pil_image):
+        """
+        Publishes the processed image.
+        """
+        # Convert the PIL image back to a ROS Image message and publish
+        np_image = np.array(pil_image)
+        image_msg = self.bridge.cv2_to_imgmsg(np_image, "rgb8")
+        self.image_pub.publish(image_msg)
+
+    def transform_point_cloud(self, target_cloud, source_frame, target_frame):
+        try:
+            # Get the transform from 'realsense_wrist_depth_optical_frame' to 'realsense_wrist_link'
+            # transform = self.tf_buffer.lookup_transform('realsense_wrist_link', 
+            #                                             'realsense_wrist_depth_optical_frame', 
+            #                                             rospy.Time(0), 
+            #                                             rospy.Duration(1.0))
+            transform = self.tf_buffer.lookup_transform(target_frame, 
+                                                        source_frame, 
+                                                        rospy.Time(0), 
+                                                        rospy.Duration(1.0))
+            # Convert the TransformStamped message to a 4x4 transformation matrix
+            transform_matrix = self.transform_to_matrix(transform)
+            
+            # Apply the transformation to the point cloud (n, 3)
+            n_points = target_cloud.shape[0]
+            ones_column = np.ones((n_points, 1))
+            homogenous_points = np.hstack((target_cloud, ones_column))  # Convert to homogeneous coordinates (n, 4)
+            transformed_points = (transform_matrix @ homogenous_points.T).T  # Apply transformation
+            transformed_points = transformed_points[:, :3]  # Back to (n, 3) by removing homogeneous component
+
+            # Publish the transformed point cloud
+            self.publish_point_cloud(transformed_points)
+            return transformed_points
+        
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+            rospy.logerr("Failed to get transform")
+
+    def transform_to_matrix(self, transform):
+        """Convert a TransformStamped message to a 4x4 transformation matrix"""
+        translation = np.array([transform.transform.translation.x,
+                                transform.transform.translation.y,
+                                transform.transform.translation.z])
+        
+        rotation = np.array([transform.transform.rotation.x,
+                             transform.transform.rotation.y,
+                             transform.transform.rotation.z,
+                             transform.transform.rotation.w])
+        
+        # Create 4x4 transformation matrix
+        transform_matrix = tf.transformations.quaternion_matrix(rotation)
+        transform_matrix[0:3, 3] = translation
+        return transform_matrix
+
+    def publish_point_cloud(self, points):
+        """Publish the point cloud as sensor_msgs/PointCloud2"""
+        header = rospy.Header()
+        header.frame_id = 'realsense_wrist_link'
+        header.stamp = rospy.Time.now()
+
+        # Convert numpy array to PointCloud2 message
+        pointcloud_msg = point_cloud2.create_cloud_xyz32(header, points.tolist())
+
+        # Publish the message
+        self.pc_pub_depth.publish(pointcloud_msg)
+        
     def align_pointclouds(self, source_cloud, target_cloud):
         # Convert numpy arrays to Open3D point clouds
         source_pcd = o3d.geometry.PointCloud()
