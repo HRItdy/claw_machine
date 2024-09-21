@@ -32,7 +32,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
   - &#10004; GroundingDINO+FastSAM
   - &#10004; OwlVit+FastSAM
   - &#10004; FastSAM with point
-- Overlap retest (convert the whole rgb image into pointcloud, and select several points, decide the correspondence between rgb image and pointcloud)--find project_2d_to_3d.py in /src
+- &#10004; Overlap retest (convert the whole rgb image into pointcloud, and select several points, decide the correspondence between rgb image and pointcloud)--find project_2d_to_3d.py in /src
 - Now there is a asynchronization between the camera view and the interactive window. When click on 'No', use the camera view to fresh the interactive window once. Need to think whether this is necessary.
 - &#10004; Add real-time interaction, service launch and redetect into the gradio app.
 - &#10004; Add Azure speech service.
