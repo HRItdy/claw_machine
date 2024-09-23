@@ -47,7 +47,8 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
   - &#10004; Get the centroid coordinates of three balls.
   - &#10004; Convert the coordinates back to `realsense_wrist_depth_optical_frame` frame.
   - &#10004; Inverse the 2D to 3D procedure, project the 3D coordinates into 2D.
-  - &#10004; Verify whether the 2D points are the same. 
+  - &#10004; Verify whether the 2D points are the same.
+  - How to resolve the mismatch issue please refer to the https://github.com/IntelRealSense/realsense-ros/issues/3180#issuecomment-2367253114
 
 
 ## Sturcture:
