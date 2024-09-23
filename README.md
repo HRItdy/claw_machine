@@ -43,12 +43,12 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 - Calibrate the camera.
 - ~~Now the detection is only executed once. If want to track the object, can use XMEM or recent SAM-v2.(Resource required)~~
 - Use the graspposMap to do the grasp.
-- &#10004; Now have figured out (in claw_depth_backup.py): use `depth_to_point_cloud` function or `color_to_point_cloud` function is converting the depth_image into `realsense_wrist_depth_optical_frame` frame. Need one more step to transform the converted pointcloud into `realsense_wrist_link` frame. Tmr need to check whether the transformed pointcloud consists with the image.
-  - &#10004; Get the centroid coordinates of three balls.
-  - &#10004; Convert the coordinates back to `realsense_wrist_depth_optical_frame` frame.
-  - &#10004; Inverse the 2D to 3D procedure, project the 3D coordinates into 2D.
-  - &#10004; Verify whether the 2D points are the same.
-  - How to resolve the mismatch issue please refer to the https://github.com/IntelRealSense/realsense-ros/issues/3180#issuecomment-2367253114
+- ~~ Now have figured out (in claw_depth_backup.py): use `depth_to_point_cloud` function or `color_to_point_cloud` function is converting the depth_image into `realsense_wrist_depth_optical_frame` frame. Need one more step to transform the converted pointcloud into `realsense_wrist_link` frame. Tmr need to check whether the transformed pointcloud consists with the image.~~
+  - ~~Get the centroid coordinates of three balls.
+  - Convert the coordinates back to `realsense_wrist_depth_optical_frame` frame.
+  - Inverse the 2D to 3D procedure, project the 3D coordinates into 2D.
+  - Verify whether the 2D points are the same.~~
+  - &#10004; How to resolve the mismatch issue please refer to https://github.com/IntelRealSense/realsense-ros/issues/3180#issuecomment-2367253114
 
 
 ## Sturcture:
