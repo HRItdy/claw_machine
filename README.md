@@ -41,6 +41,8 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 - &#10004; Enhance the real-time owl with GPT-4.
 - Merge the services into one file.
 - Calibrate the camera.
+- Test the call_depth_service
+- Test the grasp, confirm, pass and the GUI
 - ~~Now the detection is only executed once. If want to track the object, can use XMEM or recent SAM-v2.(Resource required)~~
 - Use the graspposMap to do the grasp.
 - ~~Now have figured out (in claw_depth_backup.py): use `depth_to_point_cloud` function or `color_to_point_cloud` function is converting the depth_image into `realsense_wrist_depth_optical_frame` frame. Need one more step to transform the converted pointcloud into `realsense_wrist_link` frame. Tmr need to check whether the transformed pointcloud consists with the image.~~
