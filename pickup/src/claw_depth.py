@@ -14,8 +14,6 @@ from store_mask_service import store_mask_client
 from image_geometry import PinholeCameraModel
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 from cv_bridge import CvBridge
-import pyrealsense2 as rs2
-
 
 class ClawDepth:
     def __init__(self):

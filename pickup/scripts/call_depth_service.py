@@ -5,8 +5,6 @@ from pickup.srv import Get3DPosition, Get3DPositionRequest, Get3DPositionRespons
 from geometry_msgs.msg import Point, PointStamped
 
 def call_depth_service():
-    if not rospy.has_param('/calibration/H'):
-        rospy.ERROR('Calibration is required!')
     rospy.init_node('get_3d_position_client')
     rospy.wait_for_service('get_3d_position')
     try:

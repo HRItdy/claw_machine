@@ -2,18 +2,20 @@ import rospy
 import queue
 import tkinter as tk
 from sensor_msgs.msg import Image
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 from PIL import Image as PILImage, ImageTk, ImageDraw
-from call_detect_service import call_segment_service
+from pickup.scripts.call_detect_service import call_segment_service
 from models import SpeechTextTrans
 
 # Global variables
 latest_image = None  # For camera feed
 image_queue = queue.Queue()  # Thread-safe queue for detected images
+speech_queue = queue.Queue() # Thread-safe queue for chat response
 clickable_buttons = False  # For enabling/disabling buttons
 click_x, click_y = None, None  # Coordinates for the point marker
 transcriber = SpeechTextTrans() # Speech and text transcriber
 click_ball = False # Flag to only output synthesized speech once. Without this the machine will speak several times after multiple click events.
+confirm_finished = False # Flag indicating arm has reached the confirm position. Should fresh the image and transcribe text to speech
 
 # Function to safely update the camera image in Tkinter
 def update_image():
@@ -30,9 +32,8 @@ def update_detected_window():
     global clickable_buttons, click_x, click_y
     try:
         # Check if there's a new image in the queue
-        if not image_queue.empty():
+        if not image_queue.empty() and confirm_finished:
             detected_image = image_queue.get_nowait()
-
             # # If a click was registered, draw a red marker on the image
             # if click_x is not None and click_y is not None:
             #     detected_image = detected_image.copy()
@@ -69,16 +70,22 @@ def image_callback(ros_image):
     latest_image = convert_ros_image_to_pil(ros_image)
 
 # Function to update chat_text safely from the main thread
-def update_chat_text(response_data):
-    chat_text.config(state=tk.NORMAL)  # Enable editing
-    chat_text.delete(1.0, tk.END)  # Clear previous text
-    chat_text.insert(tk.END, f"Robot: {response_data}")  # Show the robot's response
-    chat_text.config(state=tk.DISABLED)  # Disable editing again
+def update_chat_text():
+    global speech_queue
+    try:
+        if speech_queue.not_empty():
+            response = speech_queue.get_nowait()
+            chat_text.config(state=tk.NORMAL)  # Enable editing
+            chat_text.delete(1.0, tk.END)  # Clear previous text
+            chat_text.insert(tk.END, f"Robot: {response}")  # Show the robot's response
+            chat_text.config(state=tk.DISABLED)  # Disable editing again
+    except queue.Empty:
+        pass
 
 # Callback function to handle messages from the '/chat_response' topic
 def response_callback(response):
-    # Use after() to ensure this runs in the Tkinter main thread
-    root.after(0, update_chat_text, response.data)
+    global speech_queue
+    speech_queue.put(response.data)
 
 # Callback for masked image topic (runs in ROS thread)
 def masked_image_callback(ros_image):
@@ -90,6 +97,11 @@ def masked_image_callback(ros_image):
         if not click_ball:
             transcriber.text_to_speech('Is this the ball you want?')
             click_ball = True
+
+# Callback for finishing confirm
+def confirm_finish_callback(msg):
+    global confirm_finished
+    confirm_finished = msg.msg
 
 # Helper function to convert ROS Image to PIL Image
 def convert_ros_image_to_pil(ros_image):
@@ -173,6 +185,7 @@ rospy.init_node('camera_gui', anonymous=True)
 # Subscribe to camera topic and masked image topic
 rospy.Subscriber('/realsense_wrist/color/image_raw', Image, image_callback)
 rospy.Subscriber('/masked_image', Image, masked_image_callback)
+rospy.Subscriber('/pass_finished', Bool, confirm_finish_callback)
 # Publisher for the modified image with the marker
 marker_image_pub = rospy.Publisher('/masked_image_with_marker', Image, queue_size=1)
 speech_pub = rospy.Publisher('/usr_input', String, queue_size=1)

@@ -5,19 +5,25 @@ import math3d as m3d
 from pickup.msg import pickupAction, pickupResult, pickupFeedback
 from geometry_msgs.msg import Point, PointStamped, PoseStamped, Quaternion
 from tf2_ros import Buffer, TransformListener
-from urx import Robot
+from urx import Robot, ursecmon
 from urx.robotiq_two_finger_gripper import Robotiq_Two_Finger_Gripper
 from tf.transformations import quaternion_from_euler, euler_from_quaternion, quaternion_matrix, translation_matrix, concatenate_matrices, translation_from_matrix, quaternion_from_matrix
-from claw_depth import inverse_transform_for_point
 
 ACCE = 0.1
 VELO = 0.2
 LIFTUP = 0.01
 RQY = (0, 1.57, 0)  # Change to your own grasping orientation
+HOMEJ = [-0.074, -1.6376, 1.5327, -1.4837, -1.5666, 0]
+
+class CustomRobot(Robot):
+    def __init__(self, *args, **kwargs):
+        super(CustomRobot, self).__init__(*args, **kwargs)
+        # Override the timeout in SecondaryMonitor
+        self.secmon.wait(timeout=2)  # Increase timeout to 2 seconds
 
 class GraspExecutor:
     def __init__(self):
-        self.rob = Robot("192.168.0.6")
+        self.rob = CustomRobot("192.168.0.6")
         self.robotiqgrip = Robotiq_Two_Finger_Gripper(self.rob)
 
         rospy.init_node('grasp_executor', log_level=rospy.DEBUG)
@@ -68,36 +74,87 @@ class GraspExecutor:
         grasp_pos = goal.pos  # Assuming 'pos' contains the grasping position
         feedback = pickupFeedback()
         result = pickupResult()
+        tasks = ['grasp', 'confirm', 'pass']
+        assert goal.name in tasks, 'Required action is not in the action list'
+        rospy.loginfo("Executing action with name: {} at position under frame realsense_wrist_link: {}".format(goal.name, grasp_pos))
 
-        rospy.loginfo("Executing grasp with name: {} at position under frame realsense_wrist_link: {}".format(goal.name, grasp_pos))
+        if goal.name is 'grasp':
+            try:
+                # Transform the grasp position from `realsense_wrist_link` to `arm_base_link`
+                tf = self.tf_buffer.lookup_transform('arm_base_link', 'realsense_wrist_link', rospy.Time(0), rospy.Duration(1.0))
+                transform_matrix = self.get_transform_matrix(tf)
+                pos = self.transform_point(grasp_pos, transform_matrix)
+                rospy.loginfo(f"Grasping position under arm_base_link: {pos}")
+                # Move to the grasp position
+                feedback.feedback = "Moving to grasp position"
+                self.action_server.publish_feedback(feedback)
+                # Open gripper
+                self.move_gripper(0)
+                # Move to grasp position
+                self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP, *RQY), acc=0.1, vel=0.2)
+                # Close gripper
+                self.move_gripper(0.1)
+                # Liftup gripper
+                feedback.feedback = "Lifting object"
+                self.action_server.publish_feedback(feedback)
+                self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP + 0.5, *RQY), acc=0.1, vel=0.2)
+                rospy.loginfo("Grasp executed successfully")
+                result.result = "Grasp executed successfully"
+                self.action_server.set_succeeded(result)
+            except Exception as e:
+                rospy.logerr(f"Error during grasp execution: {e}")
+                result.result = f"Exception: {e}"
+                self.action_server.set_aborted(result, result.result)
 
-        try:
-            # Transform the grasp position from `realsense_wrist_link` to `arm_base_link`
-            tf = self.tf_buffer.lookup_transform('arm_base_link', 'realsense_wrist_link', rospy.Time(0), rospy.Duration(1.0))
-            transform_matrix = self.get_transform_matrix(tf)
-            pos = self.transform_point(grasp_pos, transform_matrix)
-            rospy.loginfo(f"Grasping position under arm_base_link: {pos}")
+        elif goal.name is 'pass':
+            try:
+                # Transform the pass position from `realsense_wrist_link` to `arm_base_link`
+                tf = self.tf_buffer.lookup_transform('arm_base_link', 'realsense_wrist_link', rospy.Time(0), rospy.Duration(1.0))
+                transform_matrix = self.get_transform_matrix(tf)
+                pos = self.transform_point(grasp_pos, transform_matrix)
+                rospy.loginfo(f"Pass position under arm_base_link: {pos}")
+                # Move to the pass position
+                feedback.feedback = "Moving to pass position"
+                self.action_server.publish_feedback(feedback)
+                self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP + 0.5, *RQY), acc=0.1, vel=0.2)
+                # Open gripper
+                self.move_gripper(0)
+                # Move back to home
+                feedback.feedback = "Passed. Move back to home position"
+                self.action_server.publish_feedback(feedback)
+                self.rob.movej(HOMEJ, 0.5, 0.5, wait=True)
+                rospy.loginfo("Pass executed successfully")
+                result.result = "Pass executed successfully"
+                self.action_server.set_succeeded(result)
+            except Exception as e:
+                rospy.logerr(f"Error during pass execution: {e}")
+                result.result = f"Exception: {e}"
+                self.action_server.set_aborted(result, result.result)
 
-            feedback.feedback = "Moving to grasp position"
-            self.action_server.publish_feedback(feedback)
+        elif goal.name is 'confirm':
+            try:
+                # Transform the confirm position from `realsense_wrist_link` to `arm_base_link`
+                tf = self.tf_buffer.lookup_transform('arm_base_link', 'realsense_wrist_link', rospy.Time(0), rospy.Duration(1.0))
+                transform_matrix = self.get_transform_matrix(tf)
+                pos = self.transform_point(grasp_pos, transform_matrix)
+                rospy.loginfo(f"Confrim position under arm_base_link: {pos}")
+                # Move to the confirm position
+                feedback.feedback = "Moving to confirm position"
+                self.action_server.publish_feedback(feedback)
+                # Close gripper
+                self.move_gripper(0)
+                # Move to confirm position
+                self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP + 0.2, *RQY), acc=0.1, vel=0.2)
+                feedback.feedback = "Confirm object"
+                self.action_server.publish_feedback(feedback)
+                rospy.loginfo("Confirm executed successfully")
+                result.result = "Confirm executed successfully"
+                self.action_server.set_succeeded(result)
+            except Exception as e:
+                rospy.logerr(f"Error during confirm execution: {e}")
+                result.result = f"Exception: {e}"
+                self.action_server.set_aborted(result, result.result)
 
-            # Move to grasp position
-            self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP, *RQY), acc=0.1, vel=0.2)
-            # Close gripper
-            self.move_gripper(0.1)
-
-            feedback.feedback = "Lifting object"
-            self.action_server.publish_feedback(feedback)
-
-            self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP + 0.1, *RQY), acc=0.1, vel=0.2)
-            rospy.loginfo("Grasp executed successfully")
-            result.result = "Grasp executed successfully"
-            self.action_server.set_succeeded(result)
-
-        except Exception as e:
-            rospy.logerr(f"Error during grasp execution: {e}")
-            result.result = f"Exception: {e}"
-            self.action_server.set_aborted(result, result.result)
 
     def get_transform_matrix(self, tf):
         trans = translation_matrix([tf.transform.translation.x, tf.transform.translation.y, tf.transform.translation.z])

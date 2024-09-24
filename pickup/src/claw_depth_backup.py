@@ -6,7 +6,7 @@
 import rospy
 import numpy as np
 from pickup.srv import Centroid, CentroidResponse
-from geometry_msgs.msg import Point32
+from geometry_msgs.msg import Point32, Point
 from std_msgs.msg import Header, Float32MultiArray
 from sensor_msgs.msg import Image, PointCloud, CameraInfo, PointCloud2
 import argparse
@@ -22,6 +22,7 @@ from sensor_msgs import point_cloud2
 import tf2_ros
 import tf.transformations 
 from cv_bridge import CvBridge
+from visualization_msgs.msg import Marker
 
 class ClawDepth:
     def __init__(self):
@@ -31,13 +32,15 @@ class ClawDepth:
         self.depth_image = None
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
-        self.depth_sub = Subscriber('/realsense_wrist/depth/image_rect_raw', Image)  #TODO: project the 2D to 3D pointcloud, publish it and campare with the origin
+        # self.depth_sub = Subscriber('/realsense_wrist/depth/image_rect_raw', Image)  #TODO: project the 2D to 3D pointcloud, publish it and campare with the origin
+        self.depth_sub = Subscriber('/realsense_wrist/aligned_depth_to_color/image_raw', Image)
         self.color_sub = Subscriber('/realsense_wrist/color/image_raw', Image)
         self.depth_info_sub = Subscriber('/realsense_wrist/depth/camera_info', CameraInfo)
         self.color_info_sub = Subscriber('/realsense_wrist/color/camera_info', CameraInfo)
         self.pc_pub_depth = rospy.Publisher('/depth_point_cloud', PointCloud2, queue_size=1)
         self.pc_pub_color = rospy.Publisher('/color_point_cloud', PointCloud, queue_size=1)
         self.image_pub = rospy.Publisher('image_with_points', Image, queue_size=1)
+        self.marker_pub = rospy.Publisher('markers_cali', Marker, queue_size=1)
 
         # Synchronize the topics
         self.ats = ApproximateTimeSynchronizer([self.depth_sub, self.color_sub, self.depth_info_sub, self.color_info_sub], queue_size=5, slop=0.1)
@@ -61,20 +64,36 @@ class ClawDepth:
         
         # If use self.color_instrinsics in self.color_to_point_cloud, the pointcloud will be zoomed campared with the pointcloud using depth_intrinsic
         # First get the point cloud from depth frame: target point cloud
-        target_cloud = self.depth_to_point_cloud(self.depth_image, self.depth_intrinsics)
+        # 2d coordinates you want to project to 3D space
+        points_2d = np.array([[205, 325],
+                              [518, 342],
+                              [538,  73],
+                              [220,  66]])
+        target_cloud = self.point_to_point_cloud(points_2d, self.depth_image, self.color_intrinsics)
+        # target_cloud = self.depth_to_point_cloud(self.depth_image, self.depth_intrinsics)
         # Transform the generated pointcloud under 'realsnse_wrist_depth_optical_frame' to 'realsense_wrist_link' frame
-        converted_cloud = self.transform_point_cloud(target_cloud, source_frame='realsense_wrist_depth_optical_frame', target_frame='realsense_wrist_link')
-        # 3D coordinates you want to project back to 2D image.
-        points_3d = np.array([[0.5887, 0.1332, -0.0715],
-                              [0.5839, -0.1712, -0.0875],
-                              [0.5284, -0.1678, 0.1503]])
-        # Now under realsense_wrist_link frame, convert to realsense_wrist_depth_optical_frame
-        converted_point_3d = self.transform_point_cloud(points_3d, source_frame='realsense_wrist_link', target_frame='realsense_wrist_depth_optical_frame')
-        points_2d = self.project_3d_to_2d(converted_point_3d, self.depth_intrinsics)
-        print(points_2d)
-        pil_image = Img.fromarray(self.color_image)
-        pil_image = self.draw_points_on_image(pil_image, points_2d)
-        self.publish_image(pil_image)
+        converted_cloud = self.transform_point_cloud(target_cloud, source_frame='realsense_wrist_color_optical_frame', target_frame='realsense_wrist_link')
+        markers = self.numpy_to_ros_markers(converted_cloud)
+        self.marker_pub.publish(markers)
+
+        depth_cloud = self.depth_to_point_cloud(self.depth_image, self.color_intrinsics)
+        converted_depth_cloud = self.transform_point_cloud(depth_cloud, source_frame='realsense_wrist_color_optical_frame', target_frame='realsense_wrist_link')
+        self.publish_point_cloud(converted_depth_cloud, self.pc_pub_depth)
+
+        # color_cloud = self.color_to_point_cloud(self.color_image, self.depth_image, self.color_intrinsics)
+        # converted_color_cloud = self.transform_point_cloud(depth_cloud, source_frame='realsense_wrist_depth_optical_frame', target_frame='realsense_wrist_link')
+
+        # # 3D coordinates you want to project back to 2D image.
+        # points_3d = np.array([[0.5887, 0.1332, -0.0715],
+        #                       [0.5839, -0.1712, -0.0875],
+        #                       [0.5284, -0.1678, 0.1503]])
+        # # Now under realsense_wrist_link frame, convert to realsense_wrist_depth_optical_frame
+        # converted_point_3d = self.transform_point_cloud(points_3d, source_frame='realsense_wrist_link', target_frame='realsense_wrist_depth_optical_frame')
+        # points_2d = self.project_3d_to_2d(converted_point_3d, self.depth_intrinsics)
+        # print(points_2d)
+        # pil_image = Img.fromarray(self.color_image)
+        # pil_image = self.draw_points_on_image(pil_image, points_2d)
+        # self.publish_image(pil_image)
 
     def project_3d_to_2d(self, points_3d, intrinsics):
         """
@@ -92,6 +111,27 @@ class ClawDepth:
 
         points_2d = np.vstack((u, v)).T
         return points_2d
+    
+    def numpy_to_ros_markers(self, points):
+        markers = Marker()
+        markers.header.frame_id = "realsense_wrist_link"  # Change this to your desired frame
+        markers.header.stamp = rospy.Time.now()
+        markers.ns = "points"
+        markers.id = 0
+        markers.type = Marker.POINTS
+        markers.action = Marker.ADD
+        markers.pose.orientation.w = 1.0
+        markers.scale.x = 0.015
+        markers.scale.y = 0.015
+        markers.color.r = 1.0
+        markers.color.a = 1.0
+
+        for point in points:
+            p = Point()
+            p.x, p.y, p.z = point
+            markers.points.append(p)
+
+        return markers
 
     def draw_points_on_image(self, pil_img, points_2d):
         """
@@ -134,8 +174,8 @@ class ClawDepth:
             transformed_points = (transform_matrix @ homogenous_points.T).T  # Apply transformation
             transformed_points = transformed_points[:, :3]  # Back to (n, 3) by removing homogeneous component
 
-            # Publish the transformed point cloud
-            self.publish_point_cloud(transformed_points)
+            # # Publish the transformed point cloud
+            # self.publish_point_cloud(transformed_points)
             return transformed_points
         
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
@@ -157,7 +197,7 @@ class ClawDepth:
         transform_matrix[0:3, 3] = translation
         return transform_matrix
 
-    def publish_point_cloud(self, points):
+    def publish_point_cloud(self, points, pub):
         """Publish the point cloud as sensor_msgs/PointCloud2"""
         header = rospy.Header()
         header.frame_id = 'realsense_wrist_link'
@@ -167,7 +207,7 @@ class ClawDepth:
         pointcloud_msg = point_cloud2.create_cloud_xyz32(header, points.tolist())
 
         # Publish the message
-        self.pc_pub_depth.publish(pointcloud_msg)
+        pub.publish(pointcloud_msg)
         
     def align_pointclouds(self, source_cloud, target_cloud):
         # Convert numpy arrays to Open3D point clouds
@@ -201,15 +241,15 @@ class ClawDepth:
         res_array.data = centroid
         return CentroidResponse(array = res_array)
         
-    def color_to_point_cloud(self, depth_image, intrinsics, indices = None, color_image = None):
-        if color_image is not None:
-            height, width, _ = color_image.shape
-            # Convert the whole color frame to 3D point cloud
-            u_list = [u for u in range(width)]
-            v_list = [v for v in range(height)]
-        else:
-            u_list = [u[0] for u in indices]
-            v_list = [v[0] for v in indices]
+    def color_to_point_cloud(self, color_image, depth_image, intrinsics):
+        # if color_image is not None:
+        height, width, _ = color_image.shape
+        # Convert the whole color frame to 3D point cloud
+        u_list = [u for u in range(width)]
+        v_list = [v for v in range(height)]
+        # else:
+        #     u_list = [u[0] for u in indices]
+        #     v_list = [v[0] for v in indices]
         point_cloud = []
         for v in v_list:
             for u in u_list:
@@ -259,6 +299,29 @@ class ClawDepth:
         # Stack the x, y, z arrays into a single (N, 3) array
         points_3d = np.vstack((x, y, z)).T
         return points_3d
+    
+    def point_to_point_cloud(self, points_2d, depth_image, intrinsics):
+        """
+        Projects 2D points into 3D space.
+
+        :param depth_image: 2D depth image (numpy array).
+        :param camera_intrinsics: Camera intrinsic matrix (3x3 numpy array).
+        :return: 3D points (Nx3 numpy array).
+        """
+        # Convert depth units from millimeters to meters (if needed)
+        # Intrinsic matrix parameters
+        fx, fy = intrinsics.fx, intrinsics.fy
+        cx, cy = intrinsics.ppx, intrinsics.ppy
+        points_3d = []
+        # Calculate the 3D points
+        for point in points_2d:
+            z = depth_image[point[1], point[0]] * 0.001
+            x = (point[0] - cx) * z / fx
+            y = (point[1] - cy) * z / fy
+            points_3d.append([x,y,z])
+        # Stack the x, y, z arrays into a single (N, 3) array
+        points = np.array(points_3d)
+        return points
 
     def camera_register(self, cameraInfo):
         _intrinsics = rs2.intrinsics()

@@ -14,6 +14,7 @@ class Calibrator:
 
         rospy.init_node('calibration', anonymous=True)
         rospy.Subscriber('/realsense_wrist/color/image_raw', Image, self.image_callback)
+        # rospy.Subscriber('/realsense_wrist/infra1/image_rect_raw', Image, self.image_callback)
 
         # Check if calibration data exists
         if os.path.exists(self.calibration_file):
@@ -81,7 +82,7 @@ class Calibrator:
         # Save calibration data to local file
         self.save_calibration(H)
 
-        example_pts_2d = np.array([355, 214])
+        example_pts_2d = np.array([345, 161])
         point = self.transform_2d_to_3d(example_pts_2d, H)
         print("Example 2D point:", example_pts_2d)
         print("Computed 3D point based on the example 2D point:", point)
