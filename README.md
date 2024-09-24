@@ -50,7 +50,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
   - ~~Verify whether the 2D points are the same.~~
   - &#10004; How to resolve the mismatch issue please refer to https://github.com/IntelRealSense/realsense-ros/issues/3180#issuecomment-2367253114
  
-- Use four balls to verify whether there is still deviation between 2D and 3D coordinates.
+- ~~Use four balls to verify whether there is still deviation between 2D and 3D coordinates.~~
 - Handle the 0 box issue.
 
 
