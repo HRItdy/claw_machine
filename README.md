@@ -41,7 +41,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 - &#10004; Enhance the real-time owl with GPT-4.
 - Merge the services into one file.
 - Calibrate the camera.
-- Test the call_depth_service
+- &#10004; Test the call_depth_service
 - Test the grasp, confirm, pass and the GUI
 - Design a state machine, the detection after confirmation should be owl+gpt, and the detection before confirmation is groundingdino+sam
 - ~~Now the detection is only executed once. If want to track the object, can use XMEM or recent SAM-v2.(Resource required)~~
