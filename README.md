@@ -41,6 +41,10 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 - &#10004; Enhance the real-time owl with GPT-4.
 - Merge the services into one file.
 - &#10004; Calibrate the camera.
+  - Run the app_camlib.launch  in catkin_ws.
+  - Previously the issue is the size of the marker is wrong.
+  - moveit related error doesn't impact the calibration result.
+  - `publish_tf_cam` should be false while calibration, but true when launch the robot (already organize as this by set `publish_tf_cam` as false in `app_camlib.launch`
 - &#10004; Test the call_depth_service
 - &#10004; Test the grasp, confirm, pass and the GUI
 - Design a state machine, the detection after confirmation should be owl+gpt, and the detection before confirmation is groundingdino+sam
