@@ -56,6 +56,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
  
 - ~~Use four balls to verify whether there is still deviation between 2D and 3D coordinates.~~
 - Handle the 0 box issue.
+  - Remember to integrate with GPT.
 
 
 ## Sturcture:
