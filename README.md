@@ -33,7 +33,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
   - &#10004; OwlVit+FastSAM
   - &#10004; FastSAM with point
 - &#10004; Overlap retest (convert the whole rgb image into pointcloud, and select several points, decide the correspondence between rgb image and pointcloud)--find project_2d_to_3d.py in /src
-- Now there is a asynchronization between the camera view and the interactive window. When click on 'No', use the camera view to fresh the interactive window once. Need to think whether this is necessary.
+- ~~Now there is a asynchronization between the camera view and the interactive window. When click on 'No', use the camera view to fresh the interactive window once. Need to think whether this is necessary.~~
 - &#10004; Add real-time interaction, service launch and redetect into the gradio app.
 - &#10004; Add Azure speech service.
   
@@ -41,7 +41,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 - &#10004; Enhance the real-time owl with GPT-4.
 - Merge the services into one file.
 - &#10004; Calibrate the camera.
-  - Run the app_camlib.launch  in catkin_ws.
+  - Run the app_camlib.launch in catkin_ws.
   - Previously the issue is the size of the marker is wrong.
   - moveit related error doesn't impact the calibration result.
   - `publish_tf_cam` should be false while calibration, but true when launch the robot (already organize as this by set `publish_tf_cam` as false in `app_camlib.launch`
