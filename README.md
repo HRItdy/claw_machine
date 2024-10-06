@@ -61,7 +61,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 - ~~Use four balls to verify whether there is still deviation between 2D and 3D coordinates.~~
 - Handle the 0 box issue.
   - Remember to integrate with GPT.
-- Subscribe to `chat_response` topic, call the text-to-speech function in the callback function.
+-  &#10004; Subscribe to `chat_response` topic, call the text-to-speech function in the callback function.
 - Combile the groundingDINO model as an onnx model. Write the function in models.py. Load the model and create a dummpy input, then generate the onnx model.
 - Use SlimSAM instead of the official implementation.
 
