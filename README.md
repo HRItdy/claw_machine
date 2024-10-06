@@ -62,7 +62,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 - Handle the 0 box issue.
   - Remember to integrate with GPT.
 -  &#10004; Subscribe to `chat_response` topic, call the text-to-speech function in the callback function.
-- Combile the groundingDINO model as an onnx model. Write the function in models.py. Load the model and create a dummpy input, then generate the onnx model.
+- ~~Combile the groundingDINO model as an onnx model. Write the function in models.py. Load the model and create a dummpy input, then generate the onnx model.~~ &#10004; To speed up the inference, have created a web server on colab. The server and client are in gmail entitled `groundingDINO.ipynb` and `groundingdino_client.ipynb`
 - Use SlimSAM instead of the official implementation.
 
 
