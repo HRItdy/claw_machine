@@ -7,10 +7,10 @@ import numpy as np
 import torch
 from colorama import init as colorama_init
 from colorama import Fore, Style
-from models import runGroundingDino, GroundedDetection, DetPromptedSegmentation, draw_candidate_boxes, OpenOWLDetection, GPT4Reasoning, FastSAMSegment
+from models import runGroundingDino, GroundedDetection, DetPromptedSegmentation, draw_candidate_boxes, OpenOWLDetection, GPT4Reasoning, FastSAMSegment, SpeechTextTrans
 from pickup.srv import GroundingDINO, GroundingDINOResponse, SamPoint, SamPointResponse, OwlGpt, OwlGptResponse, Get3DPosition, Get3DPositionResponse 
 from geometry_msgs.msg import Point, PointStamped
-from std_msgs.msg import Header, Bool, Int32MultiArray, MultiArrayDimension
+from std_msgs.msg import Header, Bool, Int32MultiArray, MultiArrayDimension, String
 from sensor_msgs.msg import Image, PointCloud, CameraInfo, PointCloud2
 from sensor_msgs import point_cloud2
 import argparse
@@ -23,6 +23,8 @@ import copy
 import cv2
 from cv_bridge import CvBridge
 import pyrealsense2 as rs2
+from io import BytesIO
+import requests
 
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
@@ -49,6 +51,7 @@ class ClawDetect:
         self.owlvit = OpenOWLDetection()
         self.gpt = GPT4Reasoning()
         self.fastsam = FastSAMSegment()
+        self.transcriber = SpeechTextTrans()
         print(f'{Fore.YELLOW}All models are initialized!{Style.RESET_ALL}')
         # Register the camera info
         cameraInfo = rospy.wait_for_message('/realsense_wrist/color/camera_info', CameraInfo, timeout=5)
@@ -60,6 +63,7 @@ class ClawDetect:
         self.instruct = instruct
         self.color_sub = Subscriber('/realsense_wrist/color/image_raw', Image)
         self.depth_sub = Subscriber('/realsense_wrist/aligned_depth_to_color/image_raw', Image)
+        self.response_sub = rospy.Subscriber('/chat_response', String, self.response_callback)
         # Synchronize the topics
         self.ats = ApproximateTimeSynchronizer([self.color_sub, self.depth_sub], queue_size=5, slop=0.1)
         self.ats.registerCallback(self.callback)
@@ -67,6 +71,7 @@ class ClawDetect:
         self.center_pub = rospy.Publisher('/3d_centroid', PointStamped, queue_size=1)
         # Service server
         self.gr_service = rospy.Service('grounding_dino', GroundingDINO, self.handle_gr_service)
+        self.gr_web_service = rospy.Service('grounding_dino_web', GroundingDINO, self.handle_gr_web_service)
         self.sam_service = rospy.Service('sam_point', SamPoint, self.handle_sam_service)
         self.owl_service = rospy.Service('owl_gpt', OwlGpt, self.handle_owl_service)
         # Service to get 3D grasping position
@@ -91,13 +96,19 @@ class ClawDetect:
             img.save(ppng)
         else:
             pass 
-        
+
+    def response_callback(self, text):
+        input_text = text.data
+        self.transcriber.text_to_speech(input_text)
+
     def handle_gr_service(self, req):
         if self.color_image is None:
             rospy.logwarn("No image received yet.")
             return GroundingDINOResponse(cX=-1, cY=-1)
         image_pil = Img.fromarray(self.color_image)
         mask = self.process_image(image_pil, req)
+        if mask is None:
+            return Get3DPositionResponse(cX=-1, cY=-1)
         rospy.set_param('/pc_transform/image_mask', mask.tolist())
         masked_img = self.segmenter.get_image(image_pil, mask)
         # Convert the processed image to a ROS Image message and publish it
@@ -106,6 +117,60 @@ class ClawDetect:
         self.image_pub.publish(ros_image)
         print('Image has been processed.')
         return GroundingDINOResponse(cX=self.cX, cY=self.cY)
+    
+    def handle_gr_web_service(self, req):
+        import time
+        server_url = "https://local_ip/infer"
+        if self.color_image is None:
+            rospy.logwarn("No image received yet.")
+            return GroundingDINOResponse(cX=-1, cY=-1)
+        
+        try:
+            start_time = time.time()
+            image_pil = Img.fromarray(self.color_image)
+            img_bytes = BytesIO()
+            image_pil.save(img_bytes, format='JPEG')
+            img_bytes.seek(0)
+
+            files = {'image': ('image.jpg', img_bytes, 'image/jpeg')}
+            data = {'text_prompt': req.instruction}
+
+            print(f"Request preparation time: {time.time() - start_time:.4f}s")
+
+            # Send the image and text prompt to the server
+            request_start_time = time.time()
+            response = requests.post(server_url, files=files, data=data)
+            request_time = time.time() - request_start_time
+            print(f"Request time: {request_time:.4f}s")
+
+            # Check the response from the server
+            if response.status_code == 200:
+                # Print the server's JSON response
+                print("Server response:", response.json())
+                server_response = response.json()
+                # Extract the bounding boxes
+                bounding_boxes = server_response['bounding_boxes'][0]
+                annotation = server_response['bounding_boxes'][1]
+                masked_img = draw_candidate_boxes(image_pil, bounding_boxes, annotation)
+                mask = self.fastsam.predict_box(image_pil, bounding_boxes)
+                mask = np.array(mask)
+                mask = np.squeeze(mask)
+                # bottom = self.find_bottom_point(mask)
+                rospy.set_param('/pc_transform/image_mask', mask.tolist())
+                # masked_img = self.segmenter.get_image(image_pil, mask)
+                # Convert the processed image to a ROS Image message and publish it
+                masked_img = np.array(masked_img)
+                ros_image = self.bridge.cv2_to_imgmsg(masked_img, encoding="rgb8")
+                self.image_pub.publish(ros_image)
+                print('Image has been processed.')
+                indices = np.argwhere(mask == 1)
+                centroid = indices.mean(axis=0)
+                self.cY, self.cX = centroid.astype(int)
+                return GroundingDINOResponse(cX=self.cX, cY=self.cY)
+            else:
+                print(f"Error: Unable to send the image, status code: {response.status_code}")
+        except Exception as e:
+            rospy.logerr(f"Error converting image: {e}")
     
     def handle_sam_service(self, req):
         if self.color_image is None:
@@ -354,13 +419,15 @@ class ClawDetect:
         output_dir = os.path.join("outputs/", user_request)
         os.makedirs(output_dir, exist_ok=True)
         results = self.detector.inference(image, user_request, cfg.box_threshold, cfg.text_threshold, cfg.iou_threshold)
+        if results is None:
+            return None
         dino_pil = draw_candidate_boxes(image, results, output_dir, stepstr='nouns', save=False)
         results_ = []
         results_.append(results[0][0].unsqueeze(0))
         results_.append([results[1][0]])
         sin_pil = draw_candidate_boxes(image, results_, output_dir, stepstr='sing', save=False)
         if fast_sam:
-            mask = self.fastsam.predict_prompt(image, user_request)
+            mask = self.fastsam.predict_box(image, results_[0])
         else:
             mask = self.segmenter.inference(image, results_[0], results_[1], output_dir, save_json=True)
         # Save the original image

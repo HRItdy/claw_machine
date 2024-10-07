@@ -1,3 +1,4 @@
+<?xml version="1.0"?>
 <launch>
   <node pkg="nodelet" type="nodelet" name="nodelet_manager" args="manager" />
 
@@ -8,5 +9,12 @@
         <remap from="rgb/image_rect_color" to="/realsense_wrist/color/image_raw" />
         <remap from="depth_registered/image_rect" to="/aligned_depth_image" />
         <remap from="depth_registered/points" to="/camera/color_point" />
+  </node>
+
+  <node pkg="nodelet" type="nodelet" name="nodelet2"
+        args="load depth_image_proc/point_cloud_xyz nodelet_manager">
+        <remap from="image_rect" to="/realsense_wrist/depth/image_rect_raw"/>
+        <remap from="camera_info" to="/realsense_wrist/depth/camera_info"/>
+        <remap from="points" to="/realsense_wrist/depth/points"/>
   </node>
 </launch>

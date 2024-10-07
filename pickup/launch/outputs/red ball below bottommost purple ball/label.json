@@ -1,0 +1,1 @@
+{"caption": "", "mask": [{"value": 0, "label": "background"}, {"value": 1, "label": "red ball", "logit": 0.31, "box": [187, 379, 233, 424]}]}

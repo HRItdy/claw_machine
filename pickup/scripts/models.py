@@ -463,8 +463,67 @@ def runGroundingDino(image_pil, request):
     mask = segmenter.inference(image_pil, results[0], results[1], output_dir, save_json=True)
     # mask_pil = Image.open(os.path.join(output_dir, 'mask.jpg')).convert("RGB") 
     return dino_pil, mask
-    
 
+class GroundingDINOWrapper(torch.nn.Module):
+    def __init__(self, model, processor, device):
+        super(GroundingDINOWrapper, self).__init__()
+        self.model = model
+        self.processor = processor
+        self.device = device
+        self.tokenizer = self.model.tokenizer  # Assuming your model has a tokenizer
+
+    def forward(self, image, caption):
+        # forward pass
+        outputs = self.model(image[None], captions=[caption])
+        return outputs
+
+def trt_compile():
+    mpath = os.path.join(os.path.expanduser("~"), 'claw_machine/src/pickup/scripts/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py')
+    cpath = os.path.join(os.path.expanduser("~"), 'PromptCraft-Robotics/chatgpt_airsim/GroundingDINO/weights/groundingdino_swint_ogc.pth')
+    
+    model = build_model(SLConfig.fromfile(mpath))
+    checkpoint = torch.load(cpath, map_location=cfg.device)
+    model.load_state_dict(clean_state_dict(checkpoint["model"]), strict=False)
+    model.eval()
+
+    processor = T.Compose([
+        T.RandomResize([800], max_size=1333),
+        T.ToTensor(),
+        T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+
+    model_wrapper = GroundingDINOWrapper(model, processor, cfg.device)
+
+    # Prepare a dummy image (replace this with actual image size based on the model requirements)
+    dummy_image_pil = Image.new('RGB', (640, 480))  # Create a dummy image of the required size
+
+    # Preprocess the image into a tensor
+    image_tensor, _ = processor(dummy_image_pil.convert("RGB"), None)
+    image_tensor = image_tensor.to(cfg.device)  # Send to the correct device
+
+    # Prepare a dummy caption
+    dummy_caption = "A dummy caption."  # This is just a placeholder, replace it with an appropriate caption.
+
+    model_wrapper = model_wrapper.to(cfg.device)
+
+    # Export the model to ONNX format
+    torch.onnx.export(
+        model_wrapper,                                    # Model to export
+        (image_tensor, dummy_caption),                    # Inputs: image tensor and caption string
+        "model.onnx",                                     # Output file path
+        export_params=True,                               # Store trained parameters
+        opset_version=11,                                 # ONNX version to export with
+        do_constant_folding=True,                         # Constant folding optimization
+        input_names=['image_tensor', 'caption'],          # Name the inputs for ONNX
+        output_names=['boxes_filt', 'scores', 'pred_phrases'],  # Name the outputs
+        dynamic_axes={'image_tensor': {0: 'batch_size'},  # Allow dynamic batching for image
+                      'caption': {0: 'batch_size'},       # Allow dynamic batching for caption
+                      'boxes_filt': {0: 'batch_size'},    # Dynamic output
+                      'scores': {0: 'batch_size'},
+                      'pred_phrases': {0: 'batch_size'}}
+    )
+    print("Model has been successfully exported to ONNX format.")
+    
 if __name__ == "__main__":
 
     import os
@@ -480,61 +539,4 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="cuda:0", help="run on: 'cuda:0' for GPU 0 or 'cpu' for CPU. Default GPU 0.")
     cfg = parser.parse_args()    
     
-    '''
-    input_image = "image/table.jpg"
-    request = "give me the cup on the left side of the pot"
-    image_pil = Image.open(input_image).convert("RGB") 
-    LLMsforRef(image_pil, request) 
-    '''
-
-    css = """
-    #mkd {
-        height: 500px; 
-        overflow: auto; 
-        border: 1px solid #ccc; 
-    }
-    """
-    
-    block = gr.Blocks(css=css).queue()
-    with block:
-        gr.Markdown("<h1><center> Referring in Robotics: VLMs chained by LLMs. <h1><center>")
-        
-        with gr.Row():
-            with gr.Column(scale=0.5):
-                input_image = gr.Image(sources=['upload'], type="pil", label="image")
-                request = gr.Textbox(label="User request", placeholder="Give me the cup on the left side of the pot.")
-                run_button = gr.Button(value="Run GroundingDino")
-                run_button2 = gr.Button(value="Run LLMsRef")
-                with gr.Accordion("Advanced options", open=False):
-                    box_threshold = gr.Slider(
-                        label="Box Threshold", minimum=0.0, maximum=1.0, value=0.25, step=0.001)
-                    text_threshold = gr.Slider(
-                        label="Text Threshold", minimum=0.0, maximum=1.0, value=0.25, step=0.001)
-
-            with gr.Column():
-                #gallery = gr.Image(type="pil", label="GroundingDINO")
-                gallery = gr.Gallery(label="GroundingDINO-SAM", show_label=True, elem_id="gallery", 
-                                     columns=[1], rows=[2], object_fit="contain", height="auto")
-                
-
-            with gr.Column():
-                gallery2 = gr.Image(type="pil", label="LLMsRef")
-    
-
-
-        run_button.click(fn=runGroundingDino, inputs=[input_image, request], outputs=[gallery])
-        run_button2.click(fn=LLMsforRef, inputs=[input_image, request], outputs=[gallery2])
-        
-        
-        '''
-        gr.Examples(
-          [["image/table.jpg", "coffee cup", 0.25, 0.25]],
-          inputs = [input_image, request],
-          outputs = [gallery],
-          fn=runGroundingDino,
-          cache_examples=True,
-          label='Try this example input!'
-        )
-        '''
-
-    block.launch(share=True, show_api=False, show_error=True)
+    trt_compile()

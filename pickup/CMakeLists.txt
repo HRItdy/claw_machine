@@ -20,7 +20,9 @@ find_package(catkin REQUIRED COMPONENTS
 
 add_service_files(
   FILES
+  SamPoint.srv
   GroundingDINO.srv
+  OwlGpt.srv
   PixelTo3D.srv
   StoreMask.srv
   Centroid.srv
@@ -183,9 +185,15 @@ catkin_package(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
+   scripts/pc_calibration.py
    scripts/claw_detect.py
+   scripts/claw_depth.py
+   scripts/ur_executor.py
+   scripts/claw_pickup.py
+   
    scripts/call_detect_service.py
    scripts/call_depth_service.py
+   scripts/call_pickup_service.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 ## Mark executables for installation

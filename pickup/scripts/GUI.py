@@ -4,7 +4,7 @@ import tkinter as tk
 from sensor_msgs.msg import Image
 from std_msgs.msg import String, Bool
 from PIL import Image as PILImage, ImageTk, ImageDraw
-from pickup.scripts.call_detect_service import call_segment_service
+from call_detect_service import call_segment_service
 from models import SpeechTextTrans
 
 # Global variables
@@ -32,7 +32,7 @@ def update_detected_window():
     global clickable_buttons, click_x, click_y
     try:
         # Check if there's a new image in the queue
-        if not image_queue.empty() and confirm_finished:
+        if not image_queue.empty():
             detected_image = image_queue.get_nowait()
             # # If a click was registered, draw a red marker on the image
             # if click_x is not None and click_y is not None:
@@ -75,6 +75,7 @@ def update_chat_text():
     try:
         if speech_queue.not_empty():
             response = speech_queue.get_nowait()
+            transcriber.text_to_speech(response)
             chat_text.config(state=tk.NORMAL)  # Enable editing
             chat_text.delete(1.0, tk.END)  # Clear previous text
             chat_text.insert(tk.END, f"Robot: {response}")  # Show the robot's response
@@ -101,7 +102,7 @@ def masked_image_callback(ros_image):
 # Callback for finishing confirm
 def confirm_finish_callback(msg):
     global confirm_finished
-    confirm_finished = msg.msg
+    confirm_finished = msg
 
 # Helper function to convert ROS Image to PIL Image
 def convert_ros_image_to_pil(ros_image):

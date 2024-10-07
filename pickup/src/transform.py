@@ -6,14 +6,13 @@ from tf2_ros import Buffer, TransformListener
 from urx import Robot
 from urx.robotiq_two_finger_gripper import Robotiq_Two_Finger_Gripper
 from tf.transformations import quaternion_from_euler, euler_from_quaternion, quaternion_matrix, translation_matrix, concatenate_matrices, translation_from_matrix, quaternion_from_matrix
-from claw_depth import inverse_transform_for_point
 
 ACCE = 0.1
 VELO = 0.2
 
 class Transform:
     def __init__(self):
-        self.rob = Robot("192.168.0.6")
+        self.rob = Robot("192.168.0.5")
         self.robotiqgrip = Robotiq_Two_Finger_Gripper(self.rob)
 
         rospy.init_node('transformer', log_level=rospy.DEBUG)
@@ -35,16 +34,16 @@ class Transform:
         #self.move_tcp_perpendicular()
         
         # confirm the coordinates
-        # current_pose = self.rob.get_pose()
-        # new_pose = current_pose.copy()
-        # new_pose.pos.z -= 0.05
-        # self.rob.set_pose(new_pose, wait=True)
+        current_pose = self.rob.get_pose()
+        new_pose = current_pose.copy()
+        new_pose.pos.y += 0.05
+        self.rob.set_pose(new_pose, wait=True)
         # finish the confirmation
         # rospy.init_node('position_publisher', anonymous=True)
-        pub = rospy.Publisher('/robot_base_position', PointStamped, queue_size=10)
-        sub = rospy.Subscriber('/clicked_point', PointStamped, self.transformCallBack, pub)
-        # self.pub_point(pub)
-        self.verify(pub)
+        # pub = rospy.Publisher('/robot_base_position', PointStamped, queue_size=10)
+        # sub = rospy.Subscriber('/clicked_point', PointStamped, self.transformCallBack, pub)
+        # # self.pub_point(pub)
+        # self.verify(pub)
         # Create action server
 
     def transformCallBack(self, data, pub):

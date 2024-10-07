@@ -4,7 +4,7 @@ from std_msgs.msg import Bool
 import actionlib
 import rospy
 
-DROP = [0.623, -0.287, -0.225] # The pass position under 'realsense_wrist_link' frame
+DROP = [0.429, -0.26, 0.1] # The pass position under 'base_link' frame
 class GraspServiceServer:
     def __init__(self):
         rospy.init_node('grasp_service_server', log_level=rospy.DEBUG)

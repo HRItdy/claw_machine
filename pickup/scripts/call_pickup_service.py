@@ -44,4 +44,4 @@ def call_pickup_service(task_name):
         return False
 
 if __name__ == "__main__":
-    success = call_pickup_service()
+    success = call_pickup_service('confirm')

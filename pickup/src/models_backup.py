@@ -249,6 +249,8 @@ def LLMsforRef(image_pil, request):
     output_dir = os.path.join("outputs/" , request)
     ref_pil = draw_candidate_boxes(image_pil, results, output_dir, stepstr='llmRef', save=True)
     return ref_pil
+
+# def _trt_compile(): #TODO
     
 
 if __name__ == "__main__":

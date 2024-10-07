@@ -1,4 +1,5 @@
-<launch>
+<?xml version="1.0"?>
+launch>
     <node pkg="nodelet" type="nodelet" name="pcl_manager" args="manager" output="screen"/>
 
     <!-- Run a VoxelGrid filter to clean NaNs and downsample the data -->

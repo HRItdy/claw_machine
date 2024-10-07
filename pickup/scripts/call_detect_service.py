@@ -10,6 +10,14 @@ def call_detect_service(instruction):
     print(f"Received coordinates: cX={response.cX}, cY={response.cY}")
     return response.cX, response.cY
 
+def call_detect_web_service(instruction):
+    rospy.wait_for_service('grounding_dino_web')
+    grounding_dino = rospy.ServiceProxy('grounding_dino_web', GroundingDINO)
+    request = GroundingDINORequest(instruction=instruction, fast_sam=False)
+    response = grounding_dino(request)
+    print(f"Received coordinates: cX={response.cX}, cY={response.cY}")
+    return response.cX, response.cY
+
 def call_segment_service(x, y, fast_sam=True):
     rospy.wait_for_service('sam_point')
     sam_service = rospy.ServiceProxy('sam_point', SamPoint)
@@ -96,7 +104,7 @@ def call_pickup_service():
         return False
 
 if __name__ == '__main__':
-    x, y = call_detect_service('pick up the left most red ball')
+    x, y = call_detect_web_service('pick up the right most red ball')
     print('detection done')
 
     # call_segment_service(233, 111)

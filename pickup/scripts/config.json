@@ -1,0 +1,7 @@
+{
+    "AZURE_OPENAI_API_KEY": "e85150e3a55443099100fb3a527500c2",
+    "AZURE_OPENAI_ENDPOINT": "https://openai-nrp-robot-ray.openai.azure.com/",
+    "AZURE_OPENAI_VERSION": "2024-02-01",
+    "AZURE_SPEECH_API_KEY": "8f9fa4b9ffab451996f540f5ba363c60",
+    "AZURE_SPEECH_REGION": "southeastasia"
+}
