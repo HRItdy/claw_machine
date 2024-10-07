@@ -63,7 +63,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
   - Remember to integrate with GPT.
 -  &#10004; Subscribe to `chat_response` topic, call the text-to-speech function in the callback function.
 - ~~Combile the groundingDINO model as an onnx model. Write the function in models.py. Load the model and create a dummpy input, then generate the onnx model.~~ &#10004; To speed up the inference, have created a web server on colab. The server and client are in gmail entitled `groundingDINO.ipynb` and `groundingdino_client.ipynb`
-- The
+- The above solution is not good. Because there will be a traffic jam in colab and pyngnore. Final solution: deploy the groundingDINO on desktop with 3090. Establish the local net between these two pcs.
 - ~~Use SlimSAM instead of the official implementation.~~ &#10004; FastSAM is good, but when call it I used the user_prompt, should use it with the point or boundingbox prompt. Change this and retest.
 
 
