@@ -1,0 +1,1 @@
+{"caption": "", "mask": [{"value": 0, "label": "background"}, {"value": 1, "label": "the leftmost ball", "logit": 0.33, "box": [289, 329, 314, 355]}, {"value": 2, "label": "the leftmost ball", "logit": 0.27, "box": [416, 245, 438, 267]}, {"value": 3, "label": "the leftmost ball", "logit": 0.26, "box": [448, 319, 473, 345]}]}

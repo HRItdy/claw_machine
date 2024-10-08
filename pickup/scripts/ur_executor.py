@@ -81,7 +81,7 @@ class GraspExecutor:
         if goal.name == 'grasp':
             try:
                 # Transform the grasp position from `realsense_wrist_link` to `base_link`
-                tf = self.tf_buffer.lookup_transform('base_link', 'realsense_wrist_link', rospy.Time(0), rospy.Duration(1.0))
+                tf = self.tf_buffer.lookup_transform('base_link', 'base_link', rospy.Time(0), rospy.Duration(1.0))
                 transform_matrix = self.get_transform_matrix(tf)
                 pos = self.transform_point(grasp_pos, transform_matrix)
                 rospy.loginfo(f"Grasping position under base_link: {pos}")
@@ -97,7 +97,7 @@ class GraspExecutor:
                 # Liftup gripper
                 feedback.feedback = "Lifting object"
                 self.action_server.publish_feedback(feedback)
-                self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP + 0.02, *RQY), acc=0.1, vel=0.2, relative=False)
+                self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP + 0.05, *RQY), acc=0.1, vel=0.2, relative=False)
                 rospy.loginfo("Grasp executed successfully")
                 result.result = "Grasp executed successfully"
                 self.action_server.set_succeeded(result)
@@ -134,17 +134,19 @@ class GraspExecutor:
         elif goal.name == 'confirm':
             try:
                 # Transform the confirm position from `base_link` to `base_link`
-                tf = self.tf_buffer.lookup_transform('base_link', 'base_link', rospy.Time(0), rospy.Duration(1.0))
+                tf = self.tf_buffer.lookup_transform('base_link', 'realsense_wrist_link', rospy.Time(0), rospy.Duration(1.0))
                 transform_matrix = self.get_transform_matrix(tf)
                 pos = self.transform_point(grasp_pos, transform_matrix)
                 rospy.loginfo(f"Confrim position under base_link: {pos}")
+                pos_list = pos.tolist()
+                rospy.set_param('/3d_position', pos_list) # Set the pos param  #TODO: change the pos to base_link the first time.
                 # Move to the confirm position
                 feedback.feedback = "Moving to confirm position"
                 self.action_server.publish_feedback(feedback)
                 # Close gripper
-                self.move_gripper(0)
+                self.move_gripper(0.1)
                 # Move to confirm position
-                self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP + 0.002, *RQY), acc=0.1, vel=0.2)
+                self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP + 0.03, *RQY), acc=0.1, vel=0.2)
                 feedback.feedback = "Confirm object"
                 self.action_server.publish_feedback(feedback)
                 rospy.loginfo("Confirm executed successfully")

@@ -119,58 +119,51 @@ class ClawDetect:
         return GroundingDINOResponse(cX=self.cX, cY=self.cY)
     
     def handle_gr_web_service(self, req):
-        import time
-        server_url = "https://local_ip/infer"
         if self.color_image is None:
             rospy.logwarn("No image received yet.")
             return GroundingDINOResponse(cX=-1, cY=-1)
         
-        try:
-            start_time = time.time()
-            image_pil = Img.fromarray(self.color_image)
-            img_bytes = BytesIO()
-            image_pil.save(img_bytes, format='JPEG')
-            img_bytes.seek(0)
+        server_url = "http://192.168.0.108:5000/infer"  # Replace <your_local_ip> with your actual local IP address
+        image_pil = Img.fromarray(self.color_image)
+        text_prompt = req.instruction
+        # Save the image to a BytesIO buffer
+        img_bytes = BytesIO()
+        image_pil.save(img_bytes, format='JPEG')
+        img_bytes.seek(0)  # Move to the start of the buffer
 
-            files = {'image': ('image.jpg', img_bytes, 'image/jpeg')}
-            data = {'text_prompt': req.instruction}
+        files = {'image': ('image.jpg', img_bytes, 'image/jpeg')}
+        data = {'text_prompt': text_prompt}
 
-            print(f"Request preparation time: {time.time() - start_time:.4f}s")
+        # Send the image and text prompt to the server
+        response = requests.post(server_url, files=files, data=data)
 
-            # Send the image and text prompt to the server
-            request_start_time = time.time()
-            response = requests.post(server_url, files=files, data=data)
-            request_time = time.time() - request_start_time
-            print(f"Request time: {request_time:.4f}s")
-
-            # Check the response from the server
-            if response.status_code == 200:
-                # Print the server's JSON response
-                print("Server response:", response.json())
-                server_response = response.json()
-                # Extract the bounding boxes
-                bounding_boxes = server_response['bounding_boxes'][0]
-                annotation = server_response['bounding_boxes'][1]
-                masked_img = draw_candidate_boxes(image_pil, bounding_boxes, annotation)
-                mask = self.fastsam.predict_box(image_pil, bounding_boxes)
-                mask = np.array(mask)
-                mask = np.squeeze(mask)
-                # bottom = self.find_bottom_point(mask)
-                rospy.set_param('/pc_transform/image_mask', mask.tolist())
-                # masked_img = self.segmenter.get_image(image_pil, mask)
-                # Convert the processed image to a ROS Image message and publish it
-                masked_img = np.array(masked_img)
-                ros_image = self.bridge.cv2_to_imgmsg(masked_img, encoding="rgb8")
-                self.image_pub.publish(ros_image)
-                print('Image has been processed.')
-                indices = np.argwhere(mask == 1)
-                centroid = indices.mean(axis=0)
-                self.cY, self.cX = centroid.astype(int)
-                return GroundingDINOResponse(cX=self.cX, cY=self.cY)
-            else:
-                print(f"Error: Unable to send the image, status code: {response.status_code}")
-        except Exception as e:
-            rospy.logerr(f"Error converting image: {e}")
+        # Check the response from the server
+        if response.status_code == 200:
+            # Print the server's JSON response
+            print("Server response:", response.json())
+            server_response = response.json()
+            # Extract the bounding boxes
+            bounding_boxes = server_response['bounding_boxes'][0]
+            annotation = server_response['bounding_boxes'][1]
+            masked_img = draw_candidate_boxes(image_pil, [bounding_boxes, annotation], output_dir=None, save=False)
+            mask = self.fastsam.predict_box(image_pil, bounding_boxes)
+            mask = np.array(mask)
+            mask = np.squeeze(mask)
+            # bottom = self.find_bottom_point(mask)
+            rospy.set_param('/pc_transform/image_mask', mask.tolist())
+            # masked_img = self.segmenter.get_image(image_pil, mask)
+            # Convert the processed image to a ROS Image message and publish it
+            masked_img = np.array(masked_img)
+            ros_image = self.bridge.cv2_to_imgmsg(masked_img, encoding="rgb8")
+            self.image_pub.publish(ros_image)
+            print('Image has been processed.')
+            indices = np.argwhere(mask == 1)
+            centroid = indices.mean(axis=0)
+            self.cY, self.cX = centroid.astype(int)
+            return GroundingDINOResponse(cX=self.cX, cY=self.cY)
+        else:
+            print(f"Error: Unable to send the image, status code: {response.status_code}")
+     
     
     def handle_sam_service(self, req):
         if self.color_image is None:
