@@ -59,8 +59,8 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
   - &#10004; And also verify whether the generated mask is [u_x, u_y] or [u_y, u_x]
  
 - ~~Use four balls to verify whether there is still deviation between 2D and 3D coordinates.~~
-- Handle the 0 box issue.
-  - Remember to integrate with GPT.
+- &#10004; Handle the 0 box issue.
+  - &#10004; Remember to integrate with GPT.
 -  &#10004; Subscribe to `chat_response` topic, call the text-to-speech function in the callback function.
 - ~~Combile the groundingDINO model as an onnx model. Write the function in models.py. Load the model and create a dummpy input, then generate the onnx model.~~ &#10004; To speed up the inference, have created a web server on colab. The server and client are in gmail entitled `groundingDINO.ipynb` and `groundingdino_client.ipynb`
 - The above solution is not good. Because there will be a traffic jam in colab and pyngnore. Final solution: deploy the groundingDINO on desktop with 3090. Establish the local net between these two pcs.
