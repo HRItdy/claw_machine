@@ -66,6 +66,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 - &#10004; The above solution is not good. Because there will be a traffic jam in colab and pyngnore. Final solution: deploy the groundingDINO on desktop with 3090. Establish the local net between these two pcs.
   - &#10004; Have integrated the server and client code. And now the image published to `masked_image` (to be shown on GUI) is the image with bounding box.
 - ~~Use SlimSAM instead of the official implementation.~~ &#10004; FastSAM is good, but when call it I used the user_prompt, should use it with the point or boundingbox prompt. Change this and retest.
+- Erase the wrong balls by adding masks on them.
 
 
 ## Sturcture:
