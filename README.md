@@ -69,6 +69,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 - &#10004; Erase the wrong balls by adding masks on them.
 - There already have tf_buffer in claw_detect, so transform the centroid point to `base_link` once it is generated. And store it in the parameter server.
 - Check the latency issue.
+- Check why there is a big mask, but only a ball mask is generated. Maybe you want to refer to `draw_candidate_box` function.
 
 
 ## Sturcture:
