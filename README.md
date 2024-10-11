@@ -68,6 +68,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 - ~~Use SlimSAM instead of the official implementation.~~ &#10004; FastSAM is good, but when call it I used the user_prompt, should use it with the point or boundingbox prompt. Change this and retest.
 - &#10004; Erase the wrong balls by adding masks on them.
 - There already have tf_buffer in claw_detect, so transform the centroid point to `base_link` once it is generated. And store it in the parameter server.
+- Check the latency issue.
 
 
 ## Sturcture:
