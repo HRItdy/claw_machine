@@ -70,6 +70,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 - There already have tf_buffer in claw_detect, so transform the centroid point to `base_link` once it is generated. And store it in the parameter server. Now the `3d_position` is set in `claw_detection`, can move it to `handle_td_service` and directly set the position in `base_link` to this parameter server. Remember to change the tranform function in the action server.
 - Check the latency issue. Reduce the `ros.Rate(10)` to 3 (No use, write a nodelet to preprocess the image and publish to a topic)
 - Check why there is a big mask, but only a ball mask is generated. Maybe you want to refer to `draw_candidate_box` function.
+- Reduce the grasping force.
 
 
 ## Sturcture:
