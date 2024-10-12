@@ -68,7 +68,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 - ~~Use SlimSAM instead of the official implementation.~~ &#10004; FastSAM is good, but when call it I used the user_prompt, should use it with the point or boundingbox prompt. Change this and retest.
 - &#10004; Erase the wrong balls by adding masks on them.
 - There already have tf_buffer in claw_detect, so transform the centroid point to `base_link` once it is generated. And store it in the parameter server. Now the `3d_position` is set in `claw_detection`, can move it to `handle_td_service` and directly set the position in `base_link` to this parameter server. Remember to change the tranform function in the action server.
-- Check the latency issue. Reduce the `ros.Rate(10)` to 3
+- Check the latency issue. Reduce the `ros.Rate(10)` to 3 (No use, write a nodelet to preprocess the image and publish to a topic)
 - Check why there is a big mask, but only a ball mask is generated. Maybe you want to refer to `draw_candidate_box` function.
 
 
