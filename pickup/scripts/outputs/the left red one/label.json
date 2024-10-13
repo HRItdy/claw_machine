@@ -1,1 +1,0 @@
-{"caption": "", "mask": [{"value": 0, "label": "background"}, {"value": 1, "label": "the left red one", "logit": 0.28, "box": [419, 347, 446, 375]}, {"value": 2, "label": "the left red one", "logit": 0.26, "box": [323, 334, 350, 362]}, {"value": 3, "label": "the left red one", "logit": 0.25, "box": [368, 257, 392, 282]}]}

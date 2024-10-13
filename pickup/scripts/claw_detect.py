@@ -91,6 +91,7 @@ class ClawDetect:
     def callback(self, color_msg, depth_msg):
         self.color_image = np.frombuffer(color_msg.data, dtype=np.uint8).reshape(color_msg.height, color_msg.width, -1)
         self.depth_image = np.frombuffer(depth_msg.data, dtype=np.uint16).reshape(depth_msg.height, depth_msg.width)
+        header = color_msg.header
         # Check if the images are empty
         if self.color_image is None:
             rospy.logwarn("Empty images received.")
@@ -100,7 +101,7 @@ class ClawDetect:
         # Retrieve the error masks
         err_masks = rospy.get_param('/error_balls', [])
         # Offload processing and publishing to a separate thread
-        Thread(target=self.process_and_publish, args=(self.color_image, err_masks)).start()
+        Thread(target=self.process_and_publish, args=(self.color_image, err_masks, header)).start()
 
         # # Get the error masks and preprocess the image
         # err_masks = rospy.get_param('/error_balls', [])
@@ -112,7 +113,7 @@ class ClawDetect:
         # # masked_img = np.array(self.preprocess_image)
         # Thread(target=self.publish_image, args=(self.preprocess_image,)).start()
 
-    def process_and_publish(self, color_image, err_masks):
+    def process_and_publish(self, color_image, err_masks, header):
         # Flip the image
         self.preprocess_image = color_image.copy()
         self.preprocess_image = np.flipud(np.fliplr(self.preprocess_image))
@@ -124,6 +125,7 @@ class ClawDetect:
         mask_array = np.array(err_masks, dtype=np.uint8).T
         self.preprocess_image[mask_array > 0] = [255, 255, 255]
         ros_image = self.bridge.cv2_to_imgmsg(self.preprocess_image, encoding="rgb8")
+        ros_image.header = header
         self.err_pub.publish(ros_image)
 
     def response_callback(self, text):
@@ -199,8 +201,8 @@ class ClawDetect:
             mask = np.array(mask)
             mask = np.squeeze(mask)
             print('the area of mask is:', np.sum(mask))
-            if np.sum(mask) > 3000: # filter the big mask
-                return GroundingDINOResponse(cX=-1, cY=-1)
+            if np.sum(mask) > 6000: # filter the big mask
+                return GroundingDINOResponse(cX=-2, cY=-2)
             # bottom = self.find_bottom_point(mask)
             rospy.set_param('/pc_transform/image_mask', mask.tolist())
             # This mask corresponds to the flipped image. Flip it back to correspond to the original image.
