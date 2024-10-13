@@ -6,6 +6,7 @@ from std_msgs.msg import String, Bool
 from PIL import Image as PILImage, ImageTk, ImageDraw
 from call_detect_service import call_segment_service
 from models import SpeechTextTrans
+import numpy as np
 
 # Global variables
 latest_image = None  # For camera feed
@@ -168,6 +169,16 @@ def on_no_click():
     transcriber.text_to_speech("Please restate the prompt or click on the ball you want.")
     detected_window_label.bind("<Button-1>", get_click)  # Bind click event to the detected window
     click_ball = False  # Reset the flag to allow selecting a new ball
+
+    # Get the masks of the current object from the parameter server
+    exi_masks = rospy.get_param('/pc_transform/image_mask', [])
+    exi_array = np.array(exi_masks, dtype=np.uint8).T
+    # Merge the new mask to the error masks
+    err_masks = rospy.get_param('/error_balls', [])
+    err_array = np.array(err_masks, dtype=np.uint8)
+    assert exi_array.shape == err_array.shape, "Masks must have the same shape to merge."
+    new_array = np.logical_or(exi_array, err_array)
+    rospy.set_param('/error_balls', new_array.tolist())
 
 # Function for speech-to-text transcription
 def on_speech_button_click():

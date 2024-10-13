@@ -10,10 +10,11 @@ from urx.robotiq_two_finger_gripper import Robotiq_Two_Finger_Gripper
 from tf.transformations import quaternion_from_euler, euler_from_quaternion, quaternion_matrix, translation_matrix, concatenate_matrices, translation_from_matrix, quaternion_from_matrix
 
 ACCE = 0.1
-VELO = 0.2
+VELO = 0.8
 LIFTUP = 0.01
 RQY = (0, 1.57, 0)  # Change to your own grasping orientation
-HOMEJ = [-0.074, -1.6376, 1.5327, -1.4837, -1.5666, 0]
+HOMEJ = [0, -1.6376, 1.3327, -1.25, -1.5666, 0]
+PASSJ = [0.7086, -0.894, 1.1006, -2.288, -1.602, -0.1693]
 
 class CustomRobot(Robot):
     def __init__(self, *args, **kwargs):
@@ -91,13 +92,13 @@ class GraspExecutor:
                 # Open gripper
                 self.move_gripper(0)
                 # Move to grasp position
-                self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP, *RQY), acc=0.1, vel=0.2, relative=False)
+                self.rob.movel((pos[0], pos[1], pos[2], *RQY), acc=0.1, vel=VELO, relative=False)
                 # Close gripper
                 self.move_gripper(0.1)
                 # Liftup gripper
                 feedback.feedback = "Lifting object"
                 self.action_server.publish_feedback(feedback)
-                self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP + 0.05, *RQY), acc=0.1, vel=0.2, relative=False)
+                self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP + 0.1, *RQY), acc=0.1, vel=VELO, relative=False)
                 rospy.loginfo("Grasp executed successfully")
                 result.result = "Grasp executed successfully"
                 self.action_server.set_succeeded(result)
@@ -116,7 +117,8 @@ class GraspExecutor:
                 # Move to the pass position
                 feedback.feedback = "Moving to pass position"
                 self.action_server.publish_feedback(feedback)
-                self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP + 0.005, *RQY), acc=0.1, vel=0.2)
+                #self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP + 0.005, *RQY), acc=0.1, vel=VELO, relative=False)
+                self.rob.movej(PASSJ, 0.5, 0.5, wait=True)
                 # Open gripper
                 self.move_gripper(0)
                 # Move back to home
@@ -144,9 +146,9 @@ class GraspExecutor:
                 feedback.feedback = "Moving to confirm position"
                 self.action_server.publish_feedback(feedback)
                 # Close gripper
-                self.move_gripper(0.1)
+                self.move_gripper_confirm(0.1)
                 # Move to confirm position
-                self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP + 0.03, *RQY), acc=0.1, vel=0.2)
+                self.rob.movel((pos[0], pos[1], pos[2] + LIFTUP + 0.04, *RQY), acc=0.1, vel=VELO, relative=False)
                 feedback.feedback = "Confirm object"
                 self.action_server.publish_feedback(feedback)
                 rospy.loginfo("Confirm executed successfully")
@@ -207,7 +209,7 @@ class GraspExecutor:
         orientation = target_pose_base.pose.orientation
         rpy = euler_from_quaternion((orientation.x, orientation.y, orientation.z, orientation.w))
 
-        self.rob.movel((position.x, position.y, position.z, *rpy), acc=0.1, vel=0.2)
+        self.rob.movel((position.x, position.y, position.z, *rpy), acc=0.1, vel=VELO)
         return True
     
     def move_tcp_relative(self, pose, wait=True):
@@ -244,9 +246,23 @@ class GraspExecutor:
     def move_gripper(self, q):
         # control gripper in realworld
         if q > 0:
-            self.robotiqgrip.close_gripper()
+            #self.robotiqgrip.close_gripper()
+            self.robotiqgrip.gripper_action(124, force=50)
         else:
-            self.robotiqgrip.open_gripper()
+            self.robotiqgrip.gripper_action(0, force=50)
+            #self.robotiqgrip.open_gripper()
+        # wait
+        rospy.sleep(0.5)
+        return
+    
+    def move_gripper_confirm(self, q):
+        # control gripper in realworld
+        if q > 0:
+            #self.robotiqgrip.close_gripper()
+            self.robotiqgrip.gripper_action(255, force=50)
+        else:
+            self.robotiqgrip.gripper_action(0, force=50)
+            #self.robotiqgrip.open_gripper()
         # wait
         rospy.sleep(0.5)
         return

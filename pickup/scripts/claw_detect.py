@@ -14,7 +14,7 @@ from std_msgs.msg import Header, Bool, Int32MultiArray, MultiArrayDimension, Str
 from sensor_msgs.msg import Image, PointCloud, CameraInfo, PointCloud2
 from sensor_msgs import point_cloud2
 import argparse
-from message_filters import ApproximateTimeSynchronizer, Subscriber
+from message_filters import TimeSynchronizer, Subscriber
 from PIL import Image as Img, ImageOps, ImageDraw
 import tf2_ros
 import tf.transformations 
@@ -25,6 +25,7 @@ from cv_bridge import CvBridge
 import pyrealsense2 as rs2
 from io import BytesIO
 import requests
+from threading import Thread
 
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
@@ -64,11 +65,18 @@ class ClawDetect:
         self.color_sub = Subscriber('/realsense_wrist/color/image_raw', Image)
         self.depth_sub = Subscriber('/realsense_wrist/aligned_depth_to_color/image_raw', Image)
         self.response_sub = rospy.Subscriber('/chat_response', String, self.response_callback)
+        self.flip_color = rospy.Publisher('/flip_color_image', Image, queue_size=3)
+        # The parameter server to store the wrong ball masks
+        mask = np.zeros((640, 480), dtype=int).tolist()
+        rospy.set_param('/error_balls', mask)
+        # Clear the parameter server or add the mask into the previsous mask.
+        self.err_sub = rospy.Subscriber('/confirm_response', Bool, self.confirm_callback)
+        self.err_pub = rospy.Publisher('/preprocess_image', Image, queue_size=3)
         # Synchronize the topics
-        self.ats = ApproximateTimeSynchronizer([self.color_sub, self.depth_sub], queue_size=5, slop=0.1)
+        self.ats = TimeSynchronizer([self.color_sub, self.depth_sub], queue_size=3)
         self.ats.registerCallback(self.callback)
-        self.image_pub = rospy.Publisher('/masked_image', Image, queue_size=10) 
-        self.center_pub = rospy.Publisher('/3d_centroid', PointStamped, queue_size=1)
+        self.image_pub = rospy.Publisher('/masked_image', Image, queue_size=3) 
+        self.center_pub = rospy.Publisher('/3d_centroid', PointStamped, queue_size=3)
         # Service server
         self.gr_service = rospy.Service('grounding_dino', GroundingDINO, self.handle_gr_service)
         self.gr_web_service = rospy.Service('grounding_dino_web', GroundingDINO, self.handle_gr_web_service)
@@ -76,8 +84,8 @@ class ClawDetect:
         self.owl_service = rospy.Service('owl_gpt', OwlGpt, self.handle_owl_service)
         # Service to get 3D grasping position
         self.td_service = rospy.Service('get_3d_position', Get3DPosition, self.handle_td_service)
-        self.td_pub = rospy.Publisher('/crop_cloud', PointCloud2, queue_size=10) 
-        self.rate = rospy.Rate(10) 
+        self.td_pub = rospy.Publisher('/crop_cloud', PointCloud2, queue_size=3) 
+        self.rate = rospy.Rate(5) 
         rospy.spin()
 
     def callback(self, color_msg, depth_msg):
@@ -88,18 +96,56 @@ class ClawDetect:
             rospy.logwarn("Empty images received.")
             return
         
-        # Check if the view png exists, if not, save the current image
-        ppng = os.path.join(os.path.expanduser("~"), "claw_machine/src/pickup/scripts/cache/view.png")
-        if not os.path.exists(ppng):
-            # Convert the image to PIL format and save it as 'a.png'
-            img = Img.fromarray(self.color_image)
-            img.save(ppng)
-        else:
-            pass 
+        # TODO: Flip the image 
+        # Retrieve the error masks
+        err_masks = rospy.get_param('/error_balls', [])
+        # Offload processing and publishing to a separate thread
+        Thread(target=self.process_and_publish, args=(self.color_image, err_masks)).start()
+
+        # # Get the error masks and preprocess the image
+        # err_masks = rospy.get_param('/error_balls', [])
+        # self.preprocess_image = self.color_image.copy()
+        # # Convert the mask to a numpy array
+        # mask_array = np.array(err_masks, dtype=np.uint8).T
+        # # Apply the mask: turn areas of the mask white (255, 255, 255)
+        # self.preprocess_image[mask_array > 0] = [255, 255, 255]
+        # # masked_img = np.array(self.preprocess_image)
+        # Thread(target=self.publish_image, args=(self.preprocess_image,)).start()
+
+    def process_and_publish(self, color_image, err_masks):
+        # Flip the image
+        self.preprocess_image = color_image.copy()
+        self.preprocess_image = np.flipud(np.fliplr(self.preprocess_image))
+        # Publish the flipped image to GUI
+        flip_ros_image = self.bridge.cv2_to_imgmsg(self.preprocess_image, encoding="rgb8")
+        self.flip_color.publish(flip_ros_image)
+
+        # Process the mask. Here the mask should be the one after detection--image_mask
+        mask_array = np.array(err_masks, dtype=np.uint8).T
+        self.preprocess_image[mask_array > 0] = [255, 255, 255]
+        ros_image = self.bridge.cv2_to_imgmsg(self.preprocess_image, encoding="rgb8")
+        self.err_pub.publish(ros_image)
 
     def response_callback(self, text):
         input_text = text.data
         self.transcriber.text_to_speech(input_text)
+
+    def confirm_callback(self, confirm):
+        print('Confirm result received!')
+        result = confirm.data
+        if result:
+            # Clear the mask
+            mask = np.zeros((640, 480), dtype=int).tolist()
+            rospy.set_param('/error_balls', mask)
+        else:
+            exi_masks = rospy.get_param('/pc_transform/image_mask', [])
+            exi_array = np.array(exi_masks, dtype=np.uint8).T
+            # Merge the new mask to the error masks
+            err_masks = rospy.get_param('/error_balls', [])
+            err_array = np.array(err_masks, dtype=np.uint8)
+            assert exi_array.shape == err_array.shape, "Masks must have the same shape to merge."
+            new_array = np.logical_or(exi_array, err_array)
+            rospy.set_param('/error_balls', new_array.tolist())
 
     def handle_gr_service(self, req):
         if self.color_image is None:
@@ -119,17 +165,20 @@ class ClawDetect:
         return GroundingDINOResponse(cX=self.cX, cY=self.cY)
     
     def handle_gr_web_service(self, req):
-        if self.color_image is None:
+        if self.preprocess_image is None:
             rospy.logwarn("No image received yet.")
             return GroundingDINOResponse(cX=-1, cY=-1)
         
         server_url = "http://192.168.0.108:5000/infer"  # Replace <your_local_ip> with your actual local IP address
-        image_pil = Img.fromarray(self.color_image)
+        image_pil = Img.fromarray(self.preprocess_image)
         text_prompt = req.instruction
         # Save the image to a BytesIO buffer
         img_bytes = BytesIO()
         image_pil.save(img_bytes, format='JPEG')
         img_bytes.seek(0)  # Move to the start of the buffer
+
+        # Change the confusing phrase to ball
+        text_prompt = text_prompt.replace('bull', 'ball').replace('Bull', 'Ball').replace('bowl', 'ball').replace('Bowl', 'Ball')
 
         files = {'image': ('image.jpg', img_bytes, 'image/jpeg')}
         data = {'text_prompt': text_prompt}
@@ -149,8 +198,14 @@ class ClawDetect:
             mask = self.fastsam.predict_box(image_pil, bounding_boxes)
             mask = np.array(mask)
             mask = np.squeeze(mask)
+            print('the area of mask is:', np.sum(mask))
+            if np.sum(mask) > 3000: # filter the big mask
+                return GroundingDINOResponse(cX=-1, cY=-1)
             # bottom = self.find_bottom_point(mask)
             rospy.set_param('/pc_transform/image_mask', mask.tolist())
+            # This mask corresponds to the flipped image. Flip it back to correspond to the original image.
+            flip_mask = np.fliplr(np.flipud(mask))
+            rospy.set_param('/pc_transform/image_mask_flip', flip_mask.tolist())
             # masked_img = self.segmenter.get_image(image_pil, mask)
             # Convert the processed image to a ROS Image message and publish it
             masked_img = np.array(masked_img)
@@ -237,8 +292,8 @@ class ClawDetect:
         
     def handle_td_service(self, req):
         # Get the mask from parameter server
-        if rospy.has_param('/pc_transform/image_mask'):
-            mask = np.array(rospy.get_param('/pc_transform/image_mask'))
+        if rospy.has_param('/pc_transform/image_mask_flip'):
+            mask = np.array(rospy.get_param('/pc_transform/image_mask_flip'))
             indices = np.argwhere(mask)[2:, :] 
             indices = indices[:, [1, 0]] # Convert [a,b] to [b,a]
             #np.save('indices', indices)
@@ -259,7 +314,7 @@ class ClawDetect:
         print(f'{Fore.YELLOW}Pointcloud has been cropped.{Style.RESET_ALL}')
         # Estimate the grasping position
         centroid = np.mean(converted_cloud, axis=0)
-        centroid = self.adjust(centroid, 0.005, 0.005, -0.003)
+        #centroid = self.adjust(centroid, 0.005, 0.005, -0.003)
         self.publish_centroid_point(centroid, self.center_pub)
         return Get3DPositionResponse(Point(*centroid))
 
