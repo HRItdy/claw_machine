@@ -72,6 +72,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
   - solved by add timestamp checking. stamp the processed image with the timestamp of the original image. Only the processed image after the robot arriving home position is used.
 - Check why there is a big mask, but only a ball mask is generated. Maybe you want to refer to `draw_candidate_box` function.
 - &#10004; Reduce the grasping force.
+- Code cleaning
 
 
 ## Sturcture:
