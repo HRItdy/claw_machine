@@ -141,7 +141,7 @@ python pc_calibration.py
 The calibration result will be stored in `calibration_data.json` file. If there is already a file, the program will load the parameters in default. If the home position is moved, please trigger a new calibration procedure by deleting the calibration json file.
 
 Usecase:\
-After running `pc_calibration.py`, when the color image is received, there will be a window. In this window select four points in counterclockwise order. The order of the selected points is indicated by number.
+~~After running `pc_calibration.py`, when the color image is received, there will be a window. In this window select four points in counterclockwise order. The order of the selected points is indicated by number.~~
 
 Run `rostopic echo /clicked_point`, select `Publish point` function in rviz, click the bottom of each ball, the coordinates will be published into `/clicked_point` topic. Input them into the terminal. Make sure the fixed frame of rviz is `realsense_wrist_link`. And the order of inputs should match the order of 2D image points.
 
