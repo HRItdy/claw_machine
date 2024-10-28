@@ -122,8 +122,9 @@ class ClawDetect:
         self.flip_color.publish(flip_ros_image)
 
         # Process the mask. Here the mask should be the one after detection--image_mask
+        self.mask_color = rospy.get_param('/selected_mask_color')
         mask_array = np.array(err_masks, dtype=np.uint8).T
-        self.preprocess_image[mask_array > 0] = [255, 255, 255]
+        self.preprocess_image[mask_array > 0] = self.mask_color[:-1]
         ros_image = self.bridge.cv2_to_imgmsg(self.preprocess_image, encoding="rgb8")
         ros_image.header = header
         self.err_pub.publish(ros_image)
@@ -171,7 +172,7 @@ class ClawDetect:
             rospy.logwarn("No image received yet.")
             return GroundingDINOResponse(cX=-1, cY=-1)
         
-        server_url = "http://192.168.0.108:5000/infer"  # Replace <your_local_ip> with your actual local IP address
+        server_url = "http://192.168.0.109:5000/infer"  # Replace <your_local_ip> with your actual local IP address
         image_pil = Img.fromarray(self.preprocess_image)
         text_prompt = req.instruction
         # Save the image to a BytesIO buffer

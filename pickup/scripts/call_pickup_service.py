@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from pickup.srv import GraspService, GraspServiceRequest
+from pickup.srv import GraspService, GraspServiceRequest, AbortService, AbortServiceRequest
 
 def call_pickup_service(task_name):
     rospy.wait_for_service('grasp_service')
@@ -42,6 +42,20 @@ def call_pickup_service(task_name):
     except rospy.ServiceException as e:
         rospy.logerr("Service call failed: %s" % e)
         return False
+    
+def call_abort_service():
+    rospy.wait_for_service('abort_service')
+    try:
+        abort_service = rospy.ServiceProxy('abort_service', AbortService)
+        request = AbortServiceRequest() 
+        response = abort_service(request)
+        if response.success:
+            rospy.loginfo("Abort service called successfully: " + response.message)
+        else:
+            rospy.logwarn("Failed to abort action: " + response.message)
+    except rospy.ServiceException as e:
+        rospy.logerr("Service call failed: %s" % e)
 
 if __name__ == "__main__":
-    success = call_pickup_service('pass')
+    #success = call_pickup_service('pass')
+    success = call_abort_service()

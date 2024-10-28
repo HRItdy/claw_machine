@@ -1,4 +1,4 @@
-from pickup.srv import GraspService, GraspServiceResponse 
+from pickup.srv import GraspService, GraspServiceResponse, AbortService, AbortServiceResponse
 from pickup.msg import pickupAction, pickupGoal  
 from std_msgs.msg import Bool
 import actionlib
@@ -18,6 +18,7 @@ class GraspServiceServer:
         self.client = actionlib.SimpleActionClient('grasp_action', pickupAction)
         self.client.wait_for_server()
         self.service = rospy.Service('grasp_service', GraspService, self.handle_grasp_request)
+        self.abort_service = rospy.Service('abort_service', AbortService, self.handle_abort_request)
 
     def handle_grasp_request(self, req):
         if self.client.get_state() == actionlib.GoalStatus.ACTIVE:
@@ -38,6 +39,17 @@ class GraspServiceServer:
 
         result = self.client.get_result()
         return GraspServiceResponse(success=(result.result == "Action executed successfully"))
+    
+    def handle_abort_request(self, req):
+        # Check if there is an active goal and cancel it
+        if self.client.get_state() == actionlib.GoalStatus.ACTIVE:
+            rospy.loginfo("Aborting current action...")
+            self.client.cancel_goal()
+            rospy.loginfo("Action aborted successfully.")
+            return AbortServiceResponse(success=True, message="Action aborted successfully.")
+        else:
+            rospy.logwarn("No active action to abort.")
+            return AbortServiceResponse(success=False, message="No active action to abort.")
     
     def task_done_callback(self, state, result, task_name):
         # Callback to handle task completion based on the task_name
