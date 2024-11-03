@@ -2,7 +2,7 @@
 
 ## This repo is a project to control the UR5 robot to grasp object. 
 **Model used:** 
-GPT, GroundingDINO, Segment-Anything\
+GPT, GroundingDINO, Segment-Anything, OWL-ViT\
 Implementation of GroundingDINO:\
 https://github.com/IDEA-Research/GroundingDINO/tree/main
 
