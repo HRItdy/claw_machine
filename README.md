@@ -73,7 +73,7 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 - Check why there is a big mask, but only a ball mask is generated. Maybe you want to refer to `draw_candidate_box` function.
 - &#10004; Reduce the grasping force.
 - Code cleaning
-- Test actionlib abort function
+- ~~Test actionlib abort function~~
 
 
 ## Sturcture:
