@@ -129,6 +129,7 @@ Then run:\
 **claw_depth.py**: Receive the bottom point of the mask, project it to the tabletop, estimate the centroid location of the target. \
 **ur_executor.py**: Connect to the robot and initialize the actionlib. \
 **claw_pickup.py**: Start the manipulation service.
+Now claw_pickup.py is combined with ur_executor.py.
 
 
 ### RUN EACH SCRIPT IN INDIVIDUAL TERMINAL
