@@ -17,7 +17,7 @@
 - claw_pickup.py: Initialize the pickup service.
 
 
-## How to use:
+## 🚀 How to use:
 ### LAUNCH CONNECTION WITH ROBOT AND ROSCORE
 **Terminal 1:**
 ```python
