@@ -1,7 +1,5 @@
-🦾 
-# claw_machine 
-
-## This repo is a project to control the UR5 robot to grasp object. 
+# 🦾 claw_machine 
+## 🎯 This repo is a project to control the UR5 robot to grasp object. 
 
 **Features:** 
 1. The **GroundingDINO** and **Segment-Anything** are integrated to detect the object.
