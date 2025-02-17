@@ -12,9 +12,9 @@
 
 **PickUp:** The main package including detection, depth and manipulation services.
 - 📦 models.py: Logic to load GroundingDINO and Segment-Anything. **TODO:** change the path to relative path.
-- claw_detect.py: Receive the instruction, detect the target and feedback the mask.
-- ur_executor.py: Connect to the robot and initialize the actionlib.
-- claw_pickup.py: Initialize the pickup service.
+- 🔍 claw_detect.py: Receive the instruction, detect the target and feedback the mask.
+- 🤖 ur_executor.py: Connect to the robot and initialize the actionlib.
+- 🔄 claw_pickup.py: Initialize the pickup service.
 
 
 ## 🚀 How to use:
