@@ -20,62 +20,6 @@ https://github.com/z-x-yang/Segment-and-Track-Anything/blob/main/script/download
 2. Add **nanoowl** and **FastSAM** to reduce time consumption.
 3. The functions are wrapped as individual services. 
 
-**TODO:**
-- &#10004; Test the cuda-version groundingDINO and SAM
-- &#10004; Test the nanowrl with ["red balls", "purple balls"]
-- ~~Install nanosam~~
-- &#10004; Write the gradio app, complish the reassignment of object
-- &#10004; Test with multiple balls
-  - &#10004; GroundingDINO+FastSAM could find the ball and segment it quickly.
-  - &#10004; OWL-ViT could not detect balls when there are lots of balls.
-- &#10004; Use FastSAM,
-  - &#10004; GroundingDINO+FastSAM
-  - &#10004; OwlVit+FastSAM
-  - &#10004; FastSAM with point
-- &#10004; Overlap retest (convert the whole rgb image into pointcloud, and select several points, decide the correspondence between rgb image and pointcloud)--find project_2d_to_3d.py in /src
-- ~~Now there is a asynchronization between the camera view and the interactive window. When click on 'No', use the camera view to fresh the interactive window once. Need to think whether this is necessary.~~
-- &#10004; Add real-time interaction, service launch and redetect into the gradio app.
-- &#10004; Add Azure speech service.
-  
-- ~~Enhance the groundingdino with GPT-4.~~
-- &#10004; Enhance the real-time owl with GPT-4.
-- Merge the services into one file.
-- &#10004; Calibrate the camera.
-  - Run the app_camlib.launch in catkin_ws.
-  - Previously the issue is the size of the marker is wrong.
-  - moveit related error doesn't impact the calibration result.
-  - `publish_tf_cam` should be false while calibration, but true when launch the robot (already organize as this by set `publish_tf_cam` as false in `app_camlib.launch`
-- &#10004; Test the call_depth_service
-- &#10004; Test the grasp, confirm, pass and the GUI
-- ~~Design a state machine, the detection after confirmation should be owl+gpt, and the detection before confirmation is groundingdino+sam~~
-- ~~Now the detection is only executed once. If want to track the object, can use XMEM or recent SAM-v2.(Resource required)~~
-- Use the graspnet to do the grasp. https://graspnet.net/
-- ~~Now have figured out (in claw_depth_backup.py): use `depth_to_point_cloud` function or `color_to_point_cloud` function is converting the depth_image into `realsense_wrist_depth_optical_frame` frame. Need one more step to transform the converted pointcloud into `realsense_wrist_link` frame. Tmr need to check whether the transformed pointcloud consists with the image.~~
-  - ~~Get the centroid coordinates of three balls.~~
-  - ~~Convert the coordinates back to `realsense_wrist_depth_optical_frame` frame.~~
-  - ~~Inverse the 2D to 3D procedure, project the 3D coordinates into 2D.~~
-  - ~~Verify whether the 2D points are the same.~~
-  - &#10004; How to resolve the mismatch issue please refer to https://github.com/IntelRealSense/realsense-ros/issues/3180#issuecomment-2367253114
-  - &#10004; And also verify whether the generated mask is [u_x, u_y] or [u_y, u_x]
- 
-- ~~Use four balls to verify whether there is still deviation between 2D and 3D coordinates.~~
-- &#10004; Handle the 0 box issue.
-  - &#10004; Remember to integrate with GPT.
--  &#10004; Subscribe to `chat_response` topic, call the text-to-speech function in the callback function.
-- ~~Combile the groundingDINO model as an onnx model. Write the function in models.py. Load the model and create a dummpy input, then generate the onnx model.~~ &#10004; To speed up the inference, have created a web server on colab. The server and client are in gmail entitled `groundingDINO.ipynb` and `groundingdino_client.ipynb`
-- &#10004; The above solution is not good. Because there will be a traffic jam in colab and pyngnore. Final solution: deploy the groundingDINO on desktop with 3090. Establish the local net between these two pcs.
-  - &#10004; Have integrated the server and client code. And now the image published to `masked_image` (to be shown on GUI) is the image with bounding box.
-- ~~Use SlimSAM instead of the official implementation.~~ &#10004; FastSAM is good, but when call it I used the user_prompt, should use it with the point or boundingbox prompt. Change this and retest.
-- &#10004; Erase the wrong balls by adding masks on them.
-- There already have tf_buffer in claw_detect, so transform the centroid point to `base_link` once it is generated. And store it in the parameter server. Now the `3d_position` is set in `claw_detection`, can move it to `handle_td_service` and directly set the position in `base_link` to this parameter server. Remember to change the tranform function in the action server.
-- &#10004; Check the latency issue. Reduce the `ros.Rate(10)` to 3 (No use, write a nodelet to preprocess the image and publish to a topic)
-  - solved by add timestamp checking. stamp the processed image with the timestamp of the original image. Only the processed image after the robot arriving home position is used.
-- Check why there is a big mask, but only a ball mask is generated. Maybe you want to refer to `draw_candidate_box` function.
-- &#10004; Reduce the grasping force.
-- Code cleaning
-- ~~Test actionlib abort function~~
-
-
 ## Sturcture:
 
 **LargestCluster:** A nodelet to select the largest cluster from the clusters generated by EuclideanCluster nodelet.
