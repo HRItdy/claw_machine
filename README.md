@@ -118,3 +118,8 @@ source ~/claw_machine/devel/setup.bash
 mamba activate claw_machine
 python claw_pickup.py
 ```
+| Name      | Age | Occupation  |
+|-----------|-----|------------|
+| Alice     | 25  | Engineer   |
+| Bob       | 30  | Designer   |
+| Charlie   | 28  | Developer  |
