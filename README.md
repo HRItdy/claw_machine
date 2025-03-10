@@ -104,22 +104,3 @@ mamba activate claw_machine
 python claw_pickup.py
 ```
 This script starts the manipulation service, which can be called by `call_pickup_service.py`.
-
-
-# dabiao
-## erbiao
-### sanbiao
-
-**aa**
-huanhang\
-
-```python
-source ~/claw_machine/devel/setup.bash
-mamba activate claw_machine
-python claw_pickup.py
-```
-| Name      | Age | Occupation  |
-|-----------|-----|------------|
-| Alice     | 25  | Engineer   |
-| Bob       | 30  | Designer   |
-| Charlie   | 28  | Developer  |
